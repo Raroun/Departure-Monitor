@@ -1,0 +1,27 @@
+# PlatformIO build files
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# VS Code / IDE
+.vscode/
+*.code-workspace
+
+# Python virtual environment
+.venv/
+__pycache__/
+*.pyc
+
+# Compiled firmware / build artifacts
+*.bin
+*.elf
+*.hex
+*.map
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets (optional: if you want to keep WiFi credentials out of the repo,
+# move them to a separate config_local.h and uncomment the next line)
+# include/config.h
