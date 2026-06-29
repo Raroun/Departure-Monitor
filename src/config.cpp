@@ -5,8 +5,8 @@
 const char* STOP1_LINES[] = {"482", "E482"};
 const size_t STOP1_LINES_COUNT = sizeof(STOP1_LINES) / sizeof(STOP1_LINES[0]);
 
-// Richtungen ausschliessen, die diesen Text enthalten (z. B. "Dortmund"):
-const char* STOP1_EXCLUDE_DIRECTIONS[] = {"Dortmund"};
+// Richtungen ausschliessen, die diesen Text enthalten (z. B. "Dortmund", "Ickern"):
+const char* STOP1_EXCLUDE_DIRECTIONS[] = {"Dortmund", "Ickern"};
 const size_t STOP1_EXCLUDE_DIRECTIONS_COUNT = sizeof(STOP1_EXCLUDE_DIRECTIONS) / sizeof(STOP1_EXCLUDE_DIRECTIONS[0]);
 
 // Filter fuer Haltestelle 2: Castrop-Rauxel Hbf
