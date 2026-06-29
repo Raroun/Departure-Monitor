@@ -53,7 +53,7 @@ extern const size_t STOP2_DIRECTIONS_COUNT;
 #define MAX_DEPARTURES 55
 
 // Aktualisierungsintervalle in Sekunden
-#define DAY_INTERVAL_SEC       120   // alle 2 Min. tagsueber
+#define DAY_INTERVAL_SEC       180   // alle 3 Min. tagsueber
 #define NIGHT_INTERVAL_SEC     7200  // alle 2 Stunden nachts (nur Night-Mode-Screen)
 #define NIGHT_START_HOUR       21     // 21:00 Uhr: abends kaum noch Updates noetig
 #define NIGHT_END_HOUR         5      // 05:00 Uhr: ab hier wieder alle 2 Minuten updaten
