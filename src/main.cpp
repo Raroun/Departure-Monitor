@@ -170,7 +170,7 @@ void setup() {
     }
 
     if (coldBoot) {
-        display.showMessage("Abfahrtsmonitor V1.0 by Raroun", "Connecting to WiFi...");
+        display.showMessage("Departure Monitor V1.0 by Raroun", "Connecting to WiFi...");
     }
 
     if (!wifi.connect()) {
@@ -191,7 +191,7 @@ void setup() {
     }
 
     if (coldBoot) {
-        display.showMessage("Abfahrtsmonitor V1.0 by Raroun", "Loading departures...");
+        display.showMessage("Departure Monitor V1.0 by Raroun", "Loading departures...");
     }
 
     std::vector<Departure> deps1, deps2;
