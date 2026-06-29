@@ -12,6 +12,9 @@ class DisplayManager {
     // Zeigt die Start-/Fehlermeldung
     void showMessage(const char* title, const char* message);
 
+    // Zeigt einen dekorativen Night-Mode-Screen mit Uhrzeit und Datum
+    void showNightMode(const char* timeStr, const char* dateStr);
+
     // Zeichnet die Liste der Abfahrten (eine Haltestelle)
     void showDepartures(const char* stopName, const std::vector<Departure>& departures);
 

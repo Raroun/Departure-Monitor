@@ -132,7 +132,13 @@ static unsigned long secondsUntilMorning(const struct tm& timeinfo) {
 
 static void enterNightMode(const struct tm& timeinfo) {
     unsigned long sleepSec = secondsUntilMorning(timeinfo);
-    display.showMessage("Night Mode", "Offline");
+
+    char timeStr[16];
+    char dateStr[32];
+    strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
+    strftime(dateStr, sizeof(dateStr), "%d.%m.%Y", &timeinfo);
+
+    display.showNightMode(timeStr, dateStr);
     display.sleep();
     Serial.printf("[%s] Nachtmodus, schlafe bis 05:00 (%lu Sek.)...\n", TAG, sleepSec);
     esp_sleep_enable_timer_wakeup(sleepSec * 1000000ULL);

@@ -77,6 +77,52 @@ void DisplayManager::showMessage(const char* title, const char* message) {
     epd_poweroff();
 }
 
+void DisplayManager::showNightMode(const char* timeStr, const char* dateStr) {
+    size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
+    memset(framebuffer, 0xFF, fb_size);
+
+    int y = MARGIN;
+
+    // Schwarzer Kopfbalken mit Titel
+    epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
+    draw_text(MARGIN, y + 30, "Night Mode", C_WHITE, C_BLACK, true);
+    y += TITLE_HEIGHT + 60;
+
+    // Dekorativer Rahmen
+    int boxY = y;
+    int boxH = 240;
+    epd_draw_rect(MARGIN, boxY, EPD_WIDTH - 2 * MARGIN, boxH, C_DARK, framebuffer);
+    epd_draw_rect(MARGIN + 4, boxY + 4, EPD_WIDTH - 2 * MARGIN - 8, boxH - 8, C_LIGHT, framebuffer);
+
+    // Große Uhrzeit zentriert (durch mehrfaches Zeichnen fetter)
+    int timeW = text_width(timeStr);
+    int timeX = (EPD_WIDTH - timeW) / 2;
+    int timeY = boxY + 70;
+    for (int dx = -1; dx <= 1; ++dx) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            draw_text(timeX + dx, timeY + dy, timeStr, C_BLACK, C_WHITE, true);
+        }
+    }
+
+    // Datum darunter
+    if (dateStr != nullptr && dateStr[0] != '\0') {
+        int dateW = text_width(dateStr);
+        int dateX = (EPD_WIDTH - dateW) / 2;
+        draw_text(dateX, timeY + 70, dateStr, C_DARK, C_WHITE, true);
+    }
+
+    // Offline-Hinweis unten
+    const char* offline = "Offline";
+    int offW = text_width(offline);
+    int offX = (EPD_WIDTH - offW) / 2;
+    draw_text(offX, EPD_HEIGHT - MARGIN - 40, offline, C_DARK, C_WHITE, true);
+
+    epd_poweron();
+    epd_clear();
+    epd_draw_grayscale_image(epd_full_screen(), framebuffer);
+    epd_poweroff();
+}
+
 void DisplayManager::showDepartures(const char* stopName, const std::vector<Departure>& departures) {
     showDepartures(stopName, departures, MAX_PER_SECTION, nullptr, {}, 0);
 }
