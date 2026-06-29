@@ -15,9 +15,11 @@ class DisplayManager {
     // Zeichnet die Liste der Abfahrten (eine Haltestelle)
     void showDepartures(const char* stopName, const std::vector<Departure>& departures);
 
-    // Zeichnet zwei Listen (z. B. Bus + Bahn)
+    // Zeichnet zwei Listen (z. B. Bus + Bahn).
+    // Optional wird die letzte Aktualisierungszeit oben rechts angezeigt.
     void showDepartures(const char* title1, const std::vector<Departure>& deps1, size_t max1,
-                        const char* title2, const std::vector<Departure>& deps2, size_t max2);
+                        const char* title2, const std::vector<Departure>& deps2, size_t max2,
+                        const char* lastUpdate = nullptr);
 
     // Einmaliger kompletter Display-Refresh (löscht Geisterbilder)
     void fullRefresh();

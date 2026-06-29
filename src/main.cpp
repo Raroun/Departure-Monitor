@@ -225,7 +225,12 @@ void setup() {
         if (coldBoot) {
             display.fullRefresh();
         }
-        display.showDepartures(STOP1_TITLE, deps1, 4, STOP2_TITLE, deps2PerLine, 3);
+        // Aktuelle Uhrzeit als letzte Aktualisierungszeit formatieren
+        now = time(nullptr);
+        localtime_r(&now, &timeinfo);
+        char lastUpdateStr[16];
+        strftime(lastUpdateStr, sizeof(lastUpdateStr), "%H:%M", &timeinfo);
+        display.showDepartures(STOP1_TITLE, deps1, 4, STOP2_TITLE, deps2PerLine, 3, lastUpdateStr);
     } else {
         display.showMessage("Error", "No matching departures found.");
     }

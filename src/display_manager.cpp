@@ -82,7 +82,8 @@ void DisplayManager::showDepartures(const char* stopName, const std::vector<Depa
 }
 
 void DisplayManager::showDepartures(const char* title1, const std::vector<Departure>& deps1, size_t max1,
-                                    const char* title2, const std::vector<Departure>& deps2, size_t max2) {
+                                    const char* title2, const std::vector<Departure>& deps2, size_t max2,
+                                    const char* lastUpdate) {
     size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
     memset(framebuffer, 0xFF, fb_size);
 
@@ -92,6 +93,13 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
     if (title1 != nullptr && title1[0] != '\0') {
         epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
         draw_text(MARGIN, y + 30, title1, C_WHITE, C_BLACK, true);
+
+        // Letzte Aktualisierungszeit oben rechts anzeigen
+        if (lastUpdate != nullptr && lastUpdate[0] != '\0') {
+            int tw = text_width(lastUpdate);
+            draw_text(EPD_WIDTH - MARGIN - tw, y + 30, lastUpdate, C_WHITE, C_BLACK, true);
+        }
+
         y += TITLE_HEIGHT + 4;
     }
 
