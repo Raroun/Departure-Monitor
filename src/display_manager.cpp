@@ -78,6 +78,9 @@ void DisplayManager::showMessage(const char* title, const char* message) {
 }
 
 void DisplayManager::showNightMode(const char* timeStr, const char* dateStr) {
+    (void)timeStr;  // Nicht verwendet – Screen bleibt statisch
+    (void)dateStr;  // Nicht verwendet – Screen bleibt statisch
+
     size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
     memset(framebuffer, 0xFF, fb_size);
 
@@ -86,36 +89,30 @@ void DisplayManager::showNightMode(const char* timeStr, const char* dateStr) {
     // Schwarzer Kopfbalken mit Titel
     epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
     draw_text(MARGIN, y + 30, "Night Mode", C_WHITE, C_BLACK, true);
-    y += TITLE_HEIGHT + 60;
+    y += TITLE_HEIGHT + 80;
 
     // Dekorativer Rahmen
     int boxY = y;
-    int boxH = 240;
+    int boxH = 220;
     epd_draw_rect(MARGIN, boxY, EPD_WIDTH - 2 * MARGIN, boxH, C_DARK, framebuffer);
     epd_draw_rect(MARGIN + 4, boxY + 4, EPD_WIDTH - 2 * MARGIN - 8, boxH - 8, C_LIGHT, framebuffer);
 
-    // Große Uhrzeit zentriert (durch mehrfaches Zeichnen fetter)
-    int timeW = text_width(timeStr);
-    int timeX = (EPD_WIDTH - timeW) / 2;
-    int timeY = boxY + 70;
-    for (int dx = -1; dx <= 1; ++dx) {
-        for (int dy = -1; dy <= 1; ++dy) {
-            draw_text(timeX + dx, timeY + dy, timeStr, C_BLACK, C_WHITE, true);
-        }
-    }
-
-    // Datum darunter
-    if (dateStr != nullptr && dateStr[0] != '\0') {
-        int dateW = text_width(dateStr);
-        int dateX = (EPD_WIDTH - dateW) / 2;
-        draw_text(dateX, timeY + 70, dateStr, C_DARK, C_WHITE, true);
-    }
-
-    // Offline-Hinweis unten
+    // Grosser statischer Offline-Text
     const char* offline = "Offline";
     int offW = text_width(offline);
     int offX = (EPD_WIDTH - offW) / 2;
-    draw_text(offX, EPD_HEIGHT - MARGIN - 40, offline, C_DARK, C_WHITE, true);
+    int offY = boxY + 90;
+    for (int dx = -1; dx <= 1; ++dx) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            draw_text(offX + dx, offY + dy, offline, C_BLACK, C_WHITE, true);
+        }
+    }
+
+    // Zusatzinfo unten
+    const char* info = "Updates resume at 05:00";
+    int infoW = text_width(info);
+    int infoX = (EPD_WIDTH - infoW) / 2;
+    draw_text(infoX, EPD_HEIGHT - MARGIN - 50, info, C_DARK, C_WHITE, true);
 
     epd_poweron();
     epd_clear();
