@@ -9,25 +9,25 @@ class DisplayManager {
    public:
     bool begin();
 
-    // Zeigt die Start-/Fehlermeldung
+    // Shows the startup / error message
     void showMessage(const char* title, const char* message);
 
-    // Zeigt einen dekorativen Night-Mode-Screen mit Uhrzeit und Datum
+    // Shows a decorative night-mode screen
     void showNightMode(const char* timeStr, const char* dateStr);
 
-    // Zeichnet die Liste der Abfahrten (eine Haltestelle)
+    // Draws the departure list for one stop
     void showDepartures(const char* stopName, const std::vector<Departure>& departures);
 
-    // Zeichnet zwei Listen (z. B. Bus + Bahn).
-    // Optional wird die letzte Aktualisierungszeit oben rechts angezeigt.
+    // Draws two lists (e.g. bus + train).
+    // Optionally shows the last update time in the top-right corner.
     void showDepartures(const char* title1, const std::vector<Departure>& deps1, size_t max1,
                         const char* title2, const std::vector<Departure>& deps2, size_t max2,
                         const char* lastUpdate = nullptr);
 
-    // Einmaliger kompletter Display-Refresh (löscht Geisterbilder)
+    // One-time full display refresh (removes ghosting)
     void fullRefresh();
 
-    // Tiefenschlaf-Modus fuer das Display (stromsparend)
+    // Deep-sleep mode for the display (power saving)
     void sleep();
 
    private:

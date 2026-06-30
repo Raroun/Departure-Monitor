@@ -5,10 +5,10 @@
 struct Departure {
     String line;
     String direction;
-    String mode;          // z. B. "bus", "tram", "subway", ...
-    String plannedWhen;   // ISO-Zeitstring
-    String when;          // tatsaechliche/prognostizierte ISO-Zeitstring
-    int delayMinutes;     // Verspaetung in Minuten
+    String mode;          // e.g. "bus", "tram", "subway", ...
+    String plannedWhen;   // ISO time string
+    String when;          // actual / predicted ISO time string
+    int delayMinutes;     // delay in minutes
     bool cancelled;
-    long minutesUntil;    // Minuten bis zur Abfahrt (berechnet)
+    long minutesUntil;    // minutes until departure (calculated)
 };

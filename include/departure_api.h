@@ -10,7 +10,7 @@ class DepartureApi {
    public:
     DepartureApi(const char* baseUrl, const char* stopId);
 
-    // Fuer VRR EFA wird zusaetzlich der Ortsname benoetigt.
+    // For VRR EFA the place name is also required.
     DepartureApi(const char* baseUrl, const char* stopPlace, const char* stopId);
 
     bool fetch(std::vector<Departure>& out);

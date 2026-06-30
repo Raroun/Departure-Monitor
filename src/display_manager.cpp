@@ -8,7 +8,7 @@
 
 static const char* TAG = "Display";
 
-// 4-Bit Graustufen-Farbwerte (0 = schwarz, 255 = weiss)
+// 4-bit grayscale color values (0 = black, 255 = white)
 #define C_BLACK 0x00
 #define C_DARK  0x60
 #define C_LIGHT 0xC0
@@ -46,7 +46,7 @@ static int text_width(const char* text) {
 }
 
 bool DisplayManager::begin() {
-    Serial.printf("[%s] Initialisiere E-Ink Display...\n", TAG);
+    Serial.printf("[%s] Initializing E-Ink display...\n", TAG);
 
     epd_init();
     epd_poweron();
@@ -56,7 +56,7 @@ bool DisplayManager::begin() {
     size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
     framebuffer = (uint8_t*)heap_caps_malloc(fb_size, MALLOC_CAP_SPIRAM);
     if (framebuffer == nullptr) {
-        Serial.printf("[%s] Framebuffer konnte nicht im PSRAM alloziert werden!\n", TAG);
+        Serial.printf("[%s] Failed to allocate framebuffer in PSRAM!\n", TAG);
         return false;
     }
     memset(framebuffer, 0xFF, fb_size);
@@ -78,26 +78,26 @@ void DisplayManager::showMessage(const char* title, const char* message) {
 }
 
 void DisplayManager::showNightMode(const char* timeStr, const char* dateStr) {
-    (void)timeStr;  // Nicht verwendet – Screen bleibt statisch
-    (void)dateStr;  // Nicht verwendet – Screen bleibt statisch
+    (void)timeStr;  // Not used – screen stays static
+    (void)dateStr;  // Not used – screen stays static
 
     size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
     memset(framebuffer, 0xFF, fb_size);
 
     int y = MARGIN;
 
-    // Schwarzer Kopfbalken mit Titel
+    // Black header bar with title
     epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
     draw_text(MARGIN, y + 30, "Night Mode", C_WHITE, C_BLACK, true);
     y += TITLE_HEIGHT + 80;
 
-    // Dekorativer Rahmen
+    // Decorative frame
     int boxY = y;
     int boxH = 220;
     epd_draw_rect(MARGIN, boxY, EPD_WIDTH - 2 * MARGIN, boxH, C_DARK, framebuffer);
     epd_draw_rect(MARGIN + 4, boxY + 4, EPD_WIDTH - 2 * MARGIN - 8, boxH - 8, C_LIGHT, framebuffer);
 
-    // Grosser statischer Offline-Text
+    // Large static offline text
     const char* offline = "Offline";
     int offW = text_width(offline);
     int offX = (EPD_WIDTH - offW) / 2;
@@ -108,7 +108,7 @@ void DisplayManager::showNightMode(const char* timeStr, const char* dateStr) {
         }
     }
 
-    // Zusatzinfo unten
+    // Additional info at the bottom
     const char* info = "Updates resume at 05:00";
     int infoW = text_width(info);
     int infoX = (EPD_WIDTH - infoW) / 2;
@@ -132,12 +132,12 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
 
     int y = MARGIN;
 
-    // Abschnitt 1
+    // Section 1
     if (title1 != nullptr && title1[0] != '\0') {
         epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
         draw_text(MARGIN, y + 30, title1, C_WHITE, C_BLACK, true);
 
-        // Letzte Aktualisierungszeit oben rechts anzeigen
+        // Show last update time in the top-right corner
         if (lastUpdate != nullptr && lastUpdate[0] != '\0') {
             int tw = text_width(lastUpdate);
             draw_text(EPD_WIDTH - MARGIN - tw, y + 30, lastUpdate, C_WHITE, C_BLACK, true);
@@ -154,15 +154,15 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
         if (count1 >= max1 || y > EPD_HEIGHT - ROW_HEIGHT - TITLE_HEIGHT) break;
     }
     if (deps1.empty()) {
-        draw_text(MARGIN, y + 30, "Keine Abfahrten", C_DARK, C_WHITE, true);
+        draw_text(MARGIN, y + 30, "No departures", C_DARK, C_WHITE, true);
         y += ROW_HEIGHT;
     }
 
-    // Abschnitt 2
+    // Section 2
     if (title2 != nullptr && title2[0] != '\0') {
         y += 8;
         if (y + TITLE_HEIGHT + ROW_HEIGHT > EPD_HEIGHT) {
-            // Nicht genug Platz fuer einen zweiten Titel -> ueberspringen
+            // Not enough room for a second title -> skip it
             title2 = nullptr;
         }
     }
@@ -180,7 +180,7 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
             if (count2 >= max2 || y > EPD_HEIGHT - ROW_HEIGHT) break;
         }
         if (deps2.empty()) {
-            draw_text(MARGIN, y + 30, "Keine Abfahrten", C_DARK, C_WHITE, true);
+            draw_text(MARGIN, y + 30, "No departures", C_DARK, C_WHITE, true);
         }
     }
 
@@ -194,20 +194,20 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
     uint8_t bg = (index % 2 == 1) ? C_LIGHT : C_WHITE;
     epd_fill_rect(0, y, EPD_WIDTH, ROW_HEIGHT, bg, framebuffer);
 
-    // Linie
+    // Line
     draw_text(MARGIN, y + 38, dep.line.c_str(), C_BLACK, bg, true);
 
-    // Richtung (ggf. gekuerzt)
+    // Direction (truncated if necessary)
     String direction = dep.direction;
     if (direction.length() > 30) {
         direction = direction.substring(0, 27) + "...";
     }
     draw_text(MARGIN + 110, y + 36, direction.c_str(), C_BLACK, bg, true);
 
-    // Abfahrtszeit rechtsbuendig
+    // Departure time right-aligned
     String timeStr = formatTime(dep.minutesUntil);
     if (dep.cancelled) {
-        timeStr = "entfaellt";
+        timeStr = "cancelled";
     } else if (dep.delayMinutes > 0) {
         timeStr += " +" + String(dep.delayMinutes);
     }
@@ -215,12 +215,12 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
     int tw = text_width(timeStr.c_str());
     draw_text(EPD_WIDTH - MARGIN - tw, y + 38, timeStr.c_str(), C_BLACK, bg, true);
 
-    // Feine Trennlinie
+    // Thin separator line
     epd_draw_line(MARGIN, y + ROW_HEIGHT - 1, EPD_WIDTH - MARGIN, y + ROW_HEIGHT - 1, C_DARK, framebuffer);
 }
 
 String DisplayManager::formatTime(long minutesUntil) {
-    if (minutesUntil <= 0) return String("jetzt");
+    if (minutesUntil <= 0) return String("now");
     if (minutesUntil < 60) return String(minutesUntil) + " min";
 
     long hours = minutesUntil / 60;

@@ -29,7 +29,8 @@ The device connects to a public transport API over Wi-Fi, fetches upcoming depar
 ```
 .
 ├── include/
-│   ├── config.h          # Wi-Fi, stops, API, intervals
+│   ├── config.h          # Stops, API, intervals
+│   ├── secrets.h         # Wi-Fi credentials (not tracked by Git)
 │   ├── departure.h       # Departure data structure
 │   ├── departure_api.h   # API client
 │   ├── display_manager.h # Display wrapper
@@ -79,10 +80,19 @@ Open `include/config.h` and adjust at least the following values.
 
 ### Wi-Fi
 
+Create `include/secrets.h` with your credentials (this file is ignored by Git):
+
 ```cpp
-#define WIFI_SSID       "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
+#ifndef WIFI_SSID
+#define WIFI_SSID "YOUR_WIFI_SSID"
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+#endif
 ```
+
+If `include/secrets.h` is missing, you can also fill in the fallback values directly in `include/config.h`.
 
 ### Line and direction filters
 
@@ -132,7 +142,7 @@ From the project directory:
 ## Troubleshooting
 
 - **Display stays black:** open the Serial Monitor and check if Wi-Fi and API are connecting.
-- **Wi-Fi does not connect:** check SSID and password in `config.h` (case-sensitive).
+- **Wi-Fi does not connect:** check SSID and password in `include/secrets.h` (case-sensitive).
 - **API returns no data:** verify `STOP_ID` / `STOP_PLACE`. The VRR test API can occasionally be slow or return empty results.
 - **Stuck in night mode:** the timezone is set to `CET-1CEST` with automatic DST. Make sure NTP can sync after a reset.
 

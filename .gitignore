@@ -22,6 +22,5 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Secrets (optional: if you want to keep WiFi credentials out of the repo,
-# move them to a separate config_local.h and uncomment the next line)
-# include/config.h
+# Secrets: keep Wi-Fi credentials and other private config out of the repo
+include/secrets.h

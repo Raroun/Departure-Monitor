@@ -57,9 +57,9 @@ static void filterDepartures(std::vector<Departure>& deps,
                deps.end());
 }
 
-// Waehlt fuer jede erlaubte Linie die naechste passende Abfahrt aus.
-// Damit bleiben die "Spalten" fuer S2 / RE3 / RB32 auch dann gefuellt,
-// wenn die naechste passende Fahrt erst weiter in der Zukunft liegt.
+// Selects the next matching departure for each allowed line.
+// This keeps the "columns" for S2 / RE3 / RB32 filled even when the next
+// matching departure is further in the future.
 static std::vector<Departure> selectNextPerLine(const std::vector<Departure>& deps,
                                                 const char** lines, size_t linesCount) {
     std::vector<Departure> result;
@@ -85,7 +85,7 @@ static std::vector<Departure> selectNextPerLine(const std::vector<Departure>& de
 
 void setupTime() {
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-    Serial.printf("[%s] Warte auf NTP-Zeit...\n", TAG);
+    Serial.printf("[%s] Waiting for NTP time...\n", TAG);
     time_t now = time(nullptr);
     int retries = 0;
     while (now < 1700000000 && retries < 30) {
@@ -97,7 +97,7 @@ void setupTime() {
     Serial.println();
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
-    Serial.printf("[%s] Aktuelle Zeit: %04d-%02d-%02d %02d:%02d:%02d\n",
+    Serial.printf("[%s] Current time: %04d-%02d-%02d %02d:%02d:%02d\n",
                   TAG, timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
                   timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 }
@@ -113,9 +113,9 @@ unsigned long getSleepInterval() {
     int hour = timeinfo.tm_hour;
     bool isNight = isNightHour(hour);
     unsigned long interval = isNight ? NIGHT_INTERVAL_SEC : DAY_INTERVAL_SEC;
-    Serial.printf("[%s] Tageszeit: %02d:%02d -> %s, Intervall %lu Sek.\n",
+    Serial.printf("[%s] Time of day: %02d:%02d -> %s, interval %lu sec\n",
                   TAG, timeinfo.tm_hour, timeinfo.tm_min,
-                  isNight ? "Nacht" : "Tag", interval);
+                  isNight ? "night" : "day", interval);
     return interval;
 }
 
@@ -124,7 +124,7 @@ static unsigned long secondsUntilMorning(const struct tm& timeinfo) {
     int morningMinutes = NIGHT_END_HOUR * 60;  // 05:00
     int diffMinutes = morningMinutes - currentMinutes;
     if (diffMinutes <= 0) {
-        diffMinutes += 24 * 60;  // naechster Morgen (sollte im Nachtmodus nicht vorkommen)
+        diffMinutes += 24 * 60;  // next morning (should not happen in night mode)
     }
     if (diffMinutes < 1) diffMinutes = 1;
     return diffMinutes * 60UL;
@@ -133,10 +133,10 @@ static unsigned long secondsUntilMorning(const struct tm& timeinfo) {
 static void enterNightMode(const struct tm& timeinfo) {
     unsigned long sleepSec = secondsUntilMorning(timeinfo);
 
-    // Der interne RTC des ESP32 driftet ueber mehrere Stunden leicht.
-    // Um verlaesslich um 5:00 Uhr aufzuwachen, schlafen wir maximal 2 Stunden
-    // am Stueck und pruefen dann die Zeit neu.
-    const unsigned long MAX_NIGHT_SLEEP_SEC = 7200;  // 2 Stunden
+    // The internal ESP32 RTC drifts slightly over several hours.
+    // To wake up reliably around 5:00, we sleep at most 2 hours at a time
+    // and then re-check the time.
+    const unsigned long MAX_NIGHT_SLEEP_SEC = 7200;  // 2 hours
     if (sleepSec > MAX_NIGHT_SLEEP_SEC) {
         sleepSec = MAX_NIGHT_SLEEP_SEC;
     }
@@ -148,7 +148,7 @@ static void enterNightMode(const struct tm& timeinfo) {
 
     display.showNightMode(timeStr, dateStr);
     display.sleep();
-    Serial.printf("[%s] Nachtmodus, schlafe %lu Sek. (max. bis 05:00)...\n", TAG, sleepSec);
+    Serial.printf("[%s] Night mode, sleeping %lu sec (max. until 05:00)...\n", TAG, sleepSec);
     esp_sleep_enable_timer_wakeup(sleepSec * 1000000ULL);
     esp_deep_sleep_start();
 }
@@ -157,31 +157,30 @@ void setup() {
     Serial.begin(115200);
     delay(1000);
 
-    // Zeitzone Deutschland mit automatischer Sommer-/Winterzeit.
-    // Muss als erstes gesetzt werden, bevor time()/localtime_r() aufgerufen
-    // wird, da der RAM (und damit die TZ-Variable) nach Reset/Deep-Sleep
-    // neu initialisiert wird.
+    // Time zone for Germany with automatic summer/winter time.
+    // Must be set first, before time()/localtime_r() is called, because the
+    // RAM (and therefore the TZ variable) is re-initialized after reset/deep sleep.
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
     tzset();
 
-    // Bluetooth komplett abschalten, spart Strom im Deep Sleep
+    // Turn off Bluetooth completely to save power in deep sleep
     btStop();
 
-    Serial.printf("\n[%s] Abfahrtsmonitor startet...\n", TAG);
+    Serial.printf("\n[%s] Departure Monitor starting...\n", TAG);
 
-    // Unterscheidung Erststart (cold boot) vs. Aufwachen aus Deep Sleep.
-    // Nach Deep Sleep brauchen wir keine Zwischenscreens mehr – das spart
-    // Zeit, Strom und vermeidet Flackern.
+    // Distinguish cold boot vs. waking up from deep sleep.
+    // After deep sleep we don't need intermediate screens – saves time, power
+    // and avoids flickering.
     bool coldBoot = (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED);
-    Serial.printf("[%s] Cold boot: %s\n", TAG, coldBoot ? "ja" : "nein");
+    Serial.printf("[%s] Cold boot: %s\n", TAG, coldBoot ? "yes" : "no");
 
     if (!display.begin()) {
-        Serial.printf("[%s] Display-Initialisierung fehlgeschlagen!\n", TAG);
+        Serial.printf("[%s] Display initialization failed!\n", TAG);
         while (true) delay(1000);
     }
 
-    // Wenn die Zeit aus dem RTC bereits bekannt ist und es Nacht ist,
-    // sparen wir uns WLAN, NTP und API-Abfragen komplett.
+    // If the time is already known from RTC and it is night, skip Wi-Fi,
+    // NTP and API requests completely.
     time_t now = time(nullptr);
     bool timeKnown = (now > 1700000000);
     struct tm timeinfo;
@@ -196,14 +195,14 @@ void setup() {
 
     if (!wifi.connect()) {
         display.showMessage("Error", "WiFi connection failed.\nPlease check configuration.");
-        Serial.printf("[%s] WLAN fehlgeschlagen, gehe in Deepsleep...\n", TAG);
+        Serial.printf("[%s] WiFi failed, going to deep sleep...\n", TAG);
         esp_sleep_enable_timer_wakeup(DAY_INTERVAL_SEC * 1000000ULL);
         esp_deep_sleep_start();
     }
 
     setupTime();
 
-    // Auch nach dem NTP-Sync kann es jetzt Nacht sein (z. B. Reset um 21:30).
+    // After NTP sync it can still be night (e.g. reset at 21:30).
     now = time(nullptr);
     localtime_r(&now, &timeinfo);
     if (isNightHour(timeinfo.tm_hour)) {
@@ -219,7 +218,7 @@ void setup() {
     bool ok1 = api1.fetch(deps1);
     bool ok2 = api2.fetch(deps2);
 
-    Serial.printf("[%s] Rohdaten: Wesselstr=%u, Hbf=%u\n", TAG, deps1.size(), deps2.size());
+    Serial.printf("[%s] Raw data: Wesselstr=%u, Hbf=%u\n", TAG, deps1.size(), deps2.size());
 
     if (ok1) {
         filterDepartures(deps1, STOP1_LINES, STOP1_LINES_COUNT,
@@ -232,11 +231,11 @@ void setup() {
                          nullptr, 0);
     }
 
-    // Fuer den Hbf: Pro Linie (S2/RE3/RB32) die naechste passende Abfahrt
-    // auswaehlen, damit die drei "Spalten" auch weiter in der Zukunft gefuellt sind.
+    // For the main station: select the next matching departure per line
+    // (S2/RE3/RB32) so the three "columns" stay filled further into the future.
     std::vector<Departure> deps2PerLine = selectNextPerLine(deps2, STOP2_LINES, STOP2_LINES_COUNT);
 
-    Serial.printf("[%s] Gefiltert: Wesselstr=%u, Hbf=%u\n", TAG, deps1.size(), deps2.size());
+    Serial.printf("[%s] Filtered: Wesselstr=%u, Hbf=%u\n", TAG, deps1.size(), deps2.size());
     for (const auto& d : deps2PerLine) {
         Serial.printf("[%s] Hbf: line=%s direction=%s minutes=%ld\n",
                       TAG, d.line.c_str(), d.direction.c_str(), d.minutesUntil);
@@ -246,7 +245,7 @@ void setup() {
         if (coldBoot) {
             display.fullRefresh();
         }
-        // Aktuelle Uhrzeit als letzte Aktualisierungszeit formatieren
+        // Format current time as last update time
         now = time(nullptr);
         localtime_r(&now, &timeinfo);
         char lastUpdateStr[16];
@@ -260,11 +259,11 @@ void setup() {
     wifi.disconnect();
     display.sleep();
 
-    Serial.printf("[%s] Gehe in Deepsleep fuer %lu Sekunden...\n", TAG, sleepSec);
+    Serial.printf("[%s] Going to deep sleep for %lu seconds...\n", TAG, sleepSec);
     esp_sleep_enable_timer_wakeup(sleepSec * 1000000ULL);
     esp_deep_sleep_start();
 }
 
 void loop() {
-    // Wird nie erreicht, da Deepsleep im setup() verwendet wird
+    // Never reached because deep sleep is used in setup()
 }

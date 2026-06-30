@@ -3,8 +3,12 @@
 #include <Arduino.h>
 
 // ============================================
-// WLAN Konfiguration
+// Wi-Fi Configuration
 // ============================================
+// Credentials are read from include/secrets.h (kept out of Git).
+// If secrets.h is missing, fill in the fallback values below for local builds.
+#include "secrets.h"
+
 #ifndef WIFI_SSID
 #define WIFI_SSID "YOUR_WIFI_SSID"
 #endif
@@ -14,56 +18,56 @@
 #endif
 
 // ============================================
-// Abfahrtsmonitor Konfiguration
+// Departure Monitor Configuration
 // ============================================
 
-// API-Typ
+// API type
 //   - API_TRANSPORT_REST : transport.rest APIs (BVG, VBB, DB, ...)
 //   - API_VRR_EFA        : VRR EFA rapidJSON (openservice-test.vrr.de)
 #define API_TYPE API_VRR_EFA
 
-// Verkehrsverbund / API
+// Transit authority / API
 #define API_BASE_URL "https://openservice-test.vrr.de/openservice"
 
-// Haltestelle 1: Castrop-Rauxel Wesselstrasse (Busse Richtung Castrop)
+// Stop 1: Castrop-Rauxel Wesselstrasse (buses towards Castrop)
 #define STOP1_PLACE   "Castrop-Rauxel"
 #define STOP1_ID      "Wesselstraße"
 #define STOP1_TITLE   "Wesselstr."
 
-// Haltestelle 2: Castrop-Rauxel Hbf (S2 / RE3 Richtung Essen / Duesseldorf)
+// Stop 2: Castrop-Rauxel main station (S2 / RE3 towards Essen / Duesseldorf)
 #define STOP2_PLACE   "Castrop-Rauxel"
 #define STOP2_ID      "Hbf"
 #define STOP2_TITLE   "Hbf"
 
-// Filter-Konfiguration (definiert in config.cpp)
+// Filter configuration (defined in config.cpp)
 // STOP1: Wesselstrasse
 extern const char* STOP1_LINES[];
 extern const size_t STOP1_LINES_COUNT;
-extern const char* STOP1_EXCLUDE_DIRECTIONS[];     // Richtungen ausschliessen
+extern const char* STOP1_EXCLUDE_DIRECTIONS[];     // exclude directions
 extern const size_t STOP1_EXCLUDE_DIRECTIONS_COUNT;
 
 // STOP2: Castrop-Rauxel Hbf
 extern const char* STOP2_LINES[];
 extern const size_t STOP2_LINES_COUNT;
-extern const char* STOP2_DIRECTIONS[];             // Richtungen einschliessen
+extern const char* STOP2_DIRECTIONS[];             // include directions
 extern const size_t STOP2_DIRECTIONS_COUNT;
 
-// Maximale Anzahl geladener Abfahrten insgesamt (muss >= API-limit sein,
-// damit alle vom Server gelieferten Eintraege verarbeitet werden koennen).
+// Maximum number of loaded departures in total (must be >= API limit so that
+// all entries delivered by the server can be processed).
 #define MAX_DEPARTURES 55
 
-// Aktualisierungsintervalle in Sekunden
-#define DAY_INTERVAL_SEC       180   // alle 3 Min. tagsueber
-#define NIGHT_INTERVAL_SEC     7200  // alle 2 Stunden nachts (nur Night-Mode-Screen)
-#define NIGHT_START_HOUR       21     // 21:00 Uhr: abends kaum noch Updates noetig
-#define NIGHT_END_HOUR         5      // 05:00 Uhr: ab hier wieder alle 2 Minuten updaten
+// Update intervals in seconds
+#define DAY_INTERVAL_SEC       180   // every 3 minutes during the day
+#define NIGHT_INTERVAL_SEC     7200  // every 2 hours at night (night-mode screen only)
+#define NIGHT_START_HOUR       21    // 21:00: hardly any updates needed in the evening
+#define NIGHT_END_HOUR         5     // 05:00: from here on update every 2 minutes again
 
 // ============================================
-// Display Konfiguration
+// Display Configuration
 // ============================================
 #define DISPLAY_WIDTH  EPD_WIDTH
 #define DISPLAY_HEIGHT EPD_HEIGHT
 
-// API-Typ-Konstanten
+// API type constants
 #define API_TRANSPORT_REST 0
 #define API_VRR_EFA        1

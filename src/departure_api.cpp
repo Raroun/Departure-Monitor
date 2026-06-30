@@ -24,7 +24,7 @@ String DepartureApi::buildUrl() {
     url += stopId_;
     url += "&mode=direct";
     url += "&useRealtime=1";
-    url += "&limit=50";  // Weit genug in die Zukunft, damit alle Linien gefuellt sind
+    url += "&limit=50";  // Far enough into the future so all lines are filled
     return url;
 #else
     String url = baseUrl_;
@@ -36,8 +36,8 @@ String DepartureApi::buildUrl() {
 #endif
 }
 
-// Parst "YYYY-MM-DDTHH:MM:SS+02:00" oder "YYYY-MM-DDTHH:MM:SSZ" bis zu den
-// Sekunden. Der Rest (Offset/Z) wird ignoriert.
+// Parses "YYYY-MM-DDTHH:MM:SS+02:00" or "YYYY-MM-DDTHH:MM:SSZ" up to the
+// seconds. The rest (offset / Z) is ignored.
 static bool parseIsoTime(const char* str, struct tm* outTm) {
     if (str == nullptr || strlen(str) < 19) return false;
     int y, m, d, h, min, s;
@@ -51,17 +51,17 @@ static bool parseIsoTime(const char* str, struct tm* outTm) {
     outTm->tm_hour = h;
     outTm->tm_min = min;
     outTm->tm_sec = s;
-    outTm->tm_isdst = 0;  // ISO-Zeitstrings enthalten den Offset, daher kein DST
+    outTm->tm_isdst = 0;  // ISO time strings contain the offset, so no DST
     return true;
 }
 
 #if API_TYPE == API_VRR_EFA
-// Eigene UTC-mktime Implementierung, da timegm() auf ESP32 nicht verfuegbar ist.
+// Custom UTC mktime implementation because timegm() is not available on ESP32.
 static time_t utc_mktime(struct tm* tm) {
     static const int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     int year = tm->tm_year + 1900;
     int month = tm->tm_mon;
-    int day = tm->tm_mday - 1;  // 0-basiert
+    int day = tm->tm_mday - 1;  // zero-based
 
     long days = (year - 1970) * 365;
     for (int y = 1970; y < year; y++) {
@@ -88,7 +88,7 @@ static bool parseVrrDepartures(const JsonDocument& doc, std::vector<Departure>& 
 
     JsonArrayConst stopEvents = doc["stopEvents"];
     if (stopEvents.isNull()) {
-        Serial.printf("[%s] Keine stopEvents im JSON\n", TAG);
+        Serial.printf("[%s] No stopEvents in JSON\n", TAG);
         return false;
     }
 
@@ -100,7 +100,7 @@ static bool parseVrrDepartures(const JsonDocument& doc, std::vector<Departure>& 
         d.direction = transportation["destination"]["name"] | "?";
         d.mode = transportation["product"]["name"] | "bus";
 
-        // Die VRR EFA liefert die Zeiten als UTC-ISO-Strings (enden auf 'Z')
+        // VRR EFA returns times as UTC ISO strings (ending in 'Z')
         d.when = event["departureTimeEstimated"] | event["departureTimePlanned"] | "";
         d.plannedWhen = event["departureTimePlanned"] | "";
         d.cancelled = event["isCancelled"] | false;
@@ -127,7 +127,7 @@ static bool parseTransportRestDepartures(const JsonDocument& doc, std::vector<De
 
     JsonArrayConst departures = doc;
     if (departures.isNull()) {
-        Serial.printf("[%s] Keine Abfahrten im JSON\n", TAG);
+        Serial.printf("[%s] No departures in JSON\n", TAG);
         return false;
     }
 
@@ -169,12 +169,12 @@ bool DepartureApi::fetch(std::vector<Departure>& out) {
     Serial.printf("[%s] GET %s\n", TAG, url.c_str());
 
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    http.setTimeout(15000);  // Langsamer HTTPS-Stream braucht mehr Zeit
+    http.setTimeout(15000);  // Slower HTTPS stream needs more time
     http.begin(url);
     int httpCode = http.GET();
 
     if (httpCode != 200) {
-        Serial.printf("[%s] HTTP Fehler: %d\n", TAG, httpCode);
+        Serial.printf("[%s] HTTP error: %d\n", TAG, httpCode);
         http.end();
         return false;
     }
@@ -186,9 +186,9 @@ bool DepartureApi::fetch(std::vector<Departure>& out) {
     DeserializationError err;
 
 #if API_TYPE == API_VRR_EFA
-    // Speicher sparen: Nur die fuer uns relevanten Felder aus dem grossen
-    // rapidJSON-Response einlesen. Der VRR-Server liefert bis zu 40 stopEvents;
-    // das wuerde mit http.getString() den ESP32-RAM ueberlasten.
+    // Save memory: only read the fields we need from the large rapidJSON
+    // response. The VRR server delivers up to 40 stopEvents; reading the whole
+    // response with http.getString() would overload the ESP32 RAM.
     JsonDocument filter;
     filter["stopEvents"][0]["departureTimePlanned"] = true;
     filter["stopEvents"][0]["departureTimeEstimated"] = true;
@@ -206,7 +206,7 @@ bool DepartureApi::fetch(std::vector<Departure>& out) {
     http.end();
 
     if (err) {
-        Serial.printf("[%s] JSON Parse Fehler: %s\n", TAG, err.c_str());
+        Serial.printf("[%s] JSON parse error: %s\n", TAG, err.c_str());
         return false;
     }
 
@@ -216,6 +216,6 @@ bool DepartureApi::fetch(std::vector<Departure>& out) {
     bool ok = parseTransportRestDepartures(doc, out);
 #endif
 
-    Serial.printf("[%s] %u Abfahrten geladen\n", TAG, out.size());
+    Serial.printf("[%s] %u departures loaded\n", TAG, out.size());
     return ok;
 }

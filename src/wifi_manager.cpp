@@ -11,7 +11,7 @@ bool WiFiManager::connect(unsigned long timeoutMs) {
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid_, password_);
 
-    Serial.printf("[%s] Verbinde mit %s", TAG, ssid_);
+    Serial.printf("[%s] Connecting to %s", TAG, ssid_);
     unsigned long start = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - start < timeoutMs) {
         delay(500);
@@ -20,11 +20,11 @@ bool WiFiManager::connect(unsigned long timeoutMs) {
     Serial.println();
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.printf("[%s] Verbunden, IP: %s\n", TAG, WiFi.localIP().toString().c_str());
+        Serial.printf("[%s] Connected, IP: %s\n", TAG, WiFi.localIP().toString().c_str());
         return true;
     }
 
-    Serial.printf("[%s] Verbindung fehlgeschlagen!\n", TAG);
+    Serial.printf("[%s] Connection failed!\n", TAG);
     return false;
 }
 
