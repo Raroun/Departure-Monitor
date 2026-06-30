@@ -84,7 +84,10 @@ static std::vector<Departure> selectNextPerLine(const std::vector<Departure>& de
 }
 
 void setupTime() {
-    configTime(3600, 3600, "pool.ntp.org", "time.nist.gov");
+    // Zeitzone Deutschland mit automatischer Sommer-/Winterzeit
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
     Serial.printf("[%s] Warte auf NTP-Zeit...\n", TAG);
     time_t now = time(nullptr);
     int retries = 0;
