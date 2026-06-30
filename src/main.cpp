@@ -133,6 +133,14 @@ static unsigned long secondsUntilMorning(const struct tm& timeinfo) {
 static void enterNightMode(const struct tm& timeinfo) {
     unsigned long sleepSec = secondsUntilMorning(timeinfo);
 
+    // Der interne RTC des ESP32 driftet ueber mehrere Stunden leicht.
+    // Um verlaesslich um 5:00 Uhr aufzuwachen, schlafen wir maximal 2 Stunden
+    // am Stueck und pruefen dann die Zeit neu.
+    const unsigned long MAX_NIGHT_SLEEP_SEC = 7200;  // 2 Stunden
+    if (sleepSec > MAX_NIGHT_SLEEP_SEC) {
+        sleepSec = MAX_NIGHT_SLEEP_SEC;
+    }
+
     char timeStr[16];
     char dateStr[32];
     strftime(timeStr, sizeof(timeStr), "%H:%M", &timeinfo);
@@ -140,7 +148,7 @@ static void enterNightMode(const struct tm& timeinfo) {
 
     display.showNightMode(timeStr, dateStr);
     display.sleep();
-    Serial.printf("[%s] Nachtmodus, schlafe bis 05:00 (%lu Sek.)...\n", TAG, sleepSec);
+    Serial.printf("[%s] Nachtmodus, schlafe %lu Sek. (max. bis 05:00)...\n", TAG, sleepSec);
     esp_sleep_enable_timer_wakeup(sleepSec * 1000000ULL);
     esp_deep_sleep_start();
 }
