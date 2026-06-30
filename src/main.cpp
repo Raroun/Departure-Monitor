@@ -84,10 +84,7 @@ static std::vector<Departure> selectNextPerLine(const std::vector<Departure>& de
 }
 
 void setupTime() {
-    // Zeitzone Deutschland mit automatischer Sommer-/Winterzeit
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
-    tzset();
     Serial.printf("[%s] Warte auf NTP-Zeit...\n", TAG);
     time_t now = time(nullptr);
     int retries = 0;
@@ -159,6 +156,13 @@ static void enterNightMode(const struct tm& timeinfo) {
 void setup() {
     Serial.begin(115200);
     delay(1000);
+
+    // Zeitzone Deutschland mit automatischer Sommer-/Winterzeit.
+    // Muss als erstes gesetzt werden, bevor time()/localtime_r() aufgerufen
+    // wird, da der RAM (und damit die TZ-Variable) nach Reset/Deep-Sleep
+    // neu initialisiert wird.
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
 
     // Bluetooth komplett abschalten, spart Strom im Deep Sleep
     btStop();
