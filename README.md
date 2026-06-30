@@ -129,6 +129,15 @@ From the project directory:
 - For permanent or public use you should request access to the **production server** by sending a short project description to `opendata-oepnv@vrr.de`.
 - The test server URL may change or be restricted without notice.
 
+## API Usage / Responsibility
+
+This project does **not** include its own backend or API proxy. If you want to use it, you have to take care of the public-transport API yourself:
+
+- **VRR EFA**: the built-in test URL works for experimentation, but for a permanent installation you must register with VRR (see above) and switch to the production endpoint.
+- **transport.rest**: each provider (BVG, VBB, DB, ...) runs its own instance. Check the respective terms of use, rate limits, and availability. Some may require registration or API keys.
+- Always respect the provider's terms of service and rate limits. The device fetches data directly from the configured API, so excessive polling can get your IP blocked.
+- The default stops (`Wesselstraße`, `Castrop-Rauxel Hbf`) and line filters are only examples. Replace them with the stops and lines relevant for your location in `include/config.h` and `src/config.cpp`.
+
 ## Power Saving
 
 - The ESP32 enters deep sleep after every update.
