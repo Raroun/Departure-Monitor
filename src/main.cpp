@@ -85,6 +85,10 @@ static std::vector<Departure> selectNextPerLine(const std::vector<Departure>& de
 
 void setupTime() {
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    // configTime() resets the TZ environment variable to UTC, so we must
+    // re-apply the Germany timezone here for correct local time / DST.
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
     Serial.printf("[%s] Waiting for NTP time...\n", TAG);
     time_t now = time(nullptr);
     int retries = 0;
