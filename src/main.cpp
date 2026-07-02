@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <algorithm>
 #include <esp_sleep.h>
+#include <esp_task_wdt.h>
 #include <time.h>
 
 #include "config.h"
@@ -9,6 +10,20 @@
 #include "wifi_manager.h"
 
 static const char* TAG = "Main";
+
+// Diagnostic data in RTC memory: survives deep sleep, lost on power loss.
+RTC_NOINIT_ATTR static uint32_t bootCount = 0;
+RTC_NOINIT_ATTR static time_t lastSuccessUnix = 0;
+RTC_NOINIT_ATTR static uint32_t lastErrorCode = 0;
+
+enum class ErrorCode : uint32_t {
+    NONE = 0,
+    DISPLAY_INIT_FAILED = 1,
+    WIFI_CONNECT_FAILED = 2,
+    NTP_SYNC_FAILED = 3,
+    API_FETCH_FAILED = 4,
+    UNKNOWN = 99
+};
 
 WiFiManager wifi(WIFI_SSID, WIFI_PASSWORD);
 DisplayManager display;
@@ -83,27 +98,70 @@ static std::vector<Departure> selectNextPerLine(const std::vector<Departure>& de
     return result;
 }
 
-void setupTime() {
-    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-    // configTime() resets the TZ environment variable to UTC, so we must
-    // re-apply the Germany timezone here for correct local time / DST.
+static void applyGermanyTimezone() {
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
     tzset();
+}
+
+static void setError(ErrorCode code) {
+    lastErrorCode = static_cast<uint32_t>(code);
+}
+
+static void goToSleep(unsigned long sleepSec) {
+    wifi.disconnect();
+    display.sleep();
+    Serial.printf("[%s] Going to deep sleep for %lu seconds...\n", TAG, sleepSec);
+    esp_sleep_enable_timer_wakeup(sleepSec * 1000000ULL);
+    esp_deep_sleep_start();
+}
+
+static void logDiagnostics(esp_sleep_wakeup_cause_t wakeCause, bool coldBoot) {
+    bootCount++;
+    Serial.printf("[%s] Boot count: %lu\n", TAG, bootCount);
+    Serial.printf("[%s] Cold boot: %s\n", TAG, coldBoot ? "yes" : "no");
+    Serial.printf("[%s] Wake cause: %d\n", TAG, wakeCause);
+    if (lastSuccessUnix > 1700000000) {
+        struct tm tm;
+        localtime_r(&lastSuccessUnix, &tm);
+        char buf[32];
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm);
+        Serial.printf("[%s] Last successful update: %s\n", TAG, buf);
+    } else {
+        Serial.printf("[%s] Last successful update: never\n", TAG);
+    }
+    Serial.printf("[%s] Last error code: %lu\n", TAG, lastErrorCode);
+}
+
+void setupTime() {
+    // configTime() resets the TZ environment variable to UTC, so we apply the
+    // Germany timezone before AND after it to stay in local time.
+    applyGermanyTimezone();
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    applyGermanyTimezone();
+
     Serial.printf("[%s] Waiting for NTP time...\n", TAG);
     time_t now = time(nullptr);
     int retries = 0;
     while (now < 1700000000 && retries < 30) {
         delay(500);
+        esp_task_wdt_reset();
         now = time(nullptr);
         retries++;
         Serial.print(".");
     }
     Serial.println();
+
+    applyGermanyTimezone();
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
     Serial.printf("[%s] Current time: %04d-%02d-%02d %02d:%02d:%02d\n",
                   TAG, timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
                   timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+    if (now < 1700000000) {
+        setError(ErrorCode::NTP_SYNC_FAILED);
+        Serial.printf("[%s] NTP sync failed, using RTC time if available\n", TAG);
+    }
 }
 
 static bool isNightHour(int hour) {
@@ -111,6 +169,7 @@ static bool isNightHour(int hour) {
 }
 
 unsigned long getSleepInterval() {
+    applyGermanyTimezone();
     time_t now = time(nullptr);
     struct tm timeinfo;
     localtime_r(&now, &timeinfo);
@@ -151,10 +210,8 @@ static void enterNightMode(const struct tm& timeinfo) {
     strftime(dateStr, sizeof(dateStr), "%d.%m.%Y", &timeinfo);
 
     display.showNightMode(timeStr, dateStr);
-    display.sleep();
     Serial.printf("[%s] Night mode, sleeping %lu sec (max. until 05:00)...\n", TAG, sleepSec);
-    esp_sleep_enable_timer_wakeup(sleepSec * 1000000ULL);
-    esp_deep_sleep_start();
+    goToSleep(sleepSec);
 }
 
 void setup() {
@@ -164,27 +221,30 @@ void setup() {
     // Time zone for Germany with automatic summer/winter time.
     // Must be set first, before time()/localtime_r() is called, because the
     // RAM (and therefore the TZ variable) is re-initialized after reset/deep sleep.
-    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
-    tzset();
+    applyGermanyTimezone();
 
     // Turn off Bluetooth completely to save power in deep sleep
     btStop();
-
-    Serial.printf("\n[%s] Departure Monitor starting...\n", TAG);
 
     // Distinguish cold boot vs. waking up from deep sleep.
     // After deep sleep we don't need intermediate screens – saves time, power
     // and avoids flickering.
     bool coldBoot = (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED);
-    Serial.printf("[%s] Cold boot: %s\n", TAG, coldBoot ? "yes" : "no");
+
+    Serial.printf("\n[%s] Departure Monitor starting...\n", TAG);
+    logDiagnostics(esp_sleep_get_wakeup_cause(), coldBoot);
 
     if (!display.begin()) {
+        setError(ErrorCode::DISPLAY_INIT_FAILED);
         Serial.printf("[%s] Display initialization failed!\n", TAG);
-        while (true) delay(1000);
+        // Sleep and retry instead of blocking forever.
+        esp_sleep_enable_timer_wakeup(300 * 1000000ULL);
+        esp_deep_sleep_start();
     }
 
     // If the time is already known from RTC and it is night, skip Wi-Fi,
     // NTP and API requests completely.
+    applyGermanyTimezone();
     time_t now = time(nullptr);
     bool timeKnown = (now > 1700000000);
     struct tm timeinfo;
@@ -198,19 +258,19 @@ void setup() {
     }
 
     if (!wifi.connect()) {
+        setError(ErrorCode::WIFI_CONNECT_FAILED);
         display.showMessage("Error", "WiFi connection failed.\nPlease check configuration.");
         Serial.printf("[%s] WiFi failed, going to deep sleep...\n", TAG);
-        esp_sleep_enable_timer_wakeup(DAY_INTERVAL_SEC * 1000000ULL);
-        esp_deep_sleep_start();
+        goToSleep(DAY_INTERVAL_SEC);
     }
 
     setupTime();
 
     // After NTP sync it can still be night (e.g. reset at 21:30).
     now = time(nullptr);
+    applyGermanyTimezone();
     localtime_r(&now, &timeinfo);
     if (isNightHour(timeinfo.tm_hour)) {
-        wifi.disconnect();
         enterNightMode(timeinfo);
     }
 
@@ -251,21 +311,21 @@ void setup() {
         }
         // Format current time as last update time
         now = time(nullptr);
+        applyGermanyTimezone();
         localtime_r(&now, &timeinfo);
         char lastUpdateStr[16];
         strftime(lastUpdateStr, sizeof(lastUpdateStr), "%H:%M", &timeinfo);
         display.showDepartures(STOP1_TITLE, deps1, 4, STOP2_TITLE, deps2PerLine, 3, lastUpdateStr);
     } else {
+        setError(ErrorCode::API_FETCH_FAILED);
         display.showMessage("Error", "No matching departures found.");
     }
 
-    unsigned long sleepSec = getSleepInterval();
-    wifi.disconnect();
-    display.sleep();
+    lastSuccessUnix = time(nullptr);
+    setError(ErrorCode::NONE);
 
-    Serial.printf("[%s] Going to deep sleep for %lu seconds...\n", TAG, sleepSec);
-    esp_sleep_enable_timer_wakeup(sleepSec * 1000000ULL);
-    esp_deep_sleep_start();
+    unsigned long sleepSec = getSleepInterval();
+    goToSleep(sleepSec);
 }
 
 void loop() {

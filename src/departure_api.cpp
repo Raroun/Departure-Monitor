@@ -2,6 +2,7 @@
 
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <esp_task_wdt.h>
 #include <time.h>
 
 static const char* TAG = "DepartureAPI";
@@ -169,9 +170,13 @@ bool DepartureApi::fetch(std::vector<Departure>& out) {
     Serial.printf("[%s] GET %s\n", TAG, url.c_str());
 
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    http.setTimeout(15000);  // Slower HTTPS stream needs more time
+    http.setConnectTimeout(10000);  // TLS handshake can be slow
+    http.setTimeout(8000);          // Must stay below the task watchdog timeout
     http.begin(url);
+
+    esp_task_wdt_reset();
     int httpCode = http.GET();
+    esp_task_wdt_reset();
 
     if (httpCode != 200) {
         Serial.printf("[%s] HTTP error: %d\n", TAG, httpCode);
