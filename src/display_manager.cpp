@@ -169,7 +169,7 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
 
     // Section 1
     if (title1 != nullptr && title1[0] != '\0') {
-        drawHeader(title1, lastUpdate, lastUpdateEpoch);
+        drawHeader(y, title1, lastUpdate, lastUpdateEpoch);
         y += TITLE_HEIGHT + 4;
     }
 
@@ -195,7 +195,7 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
     }
 
     if (title2 != nullptr && title2[0] != '\0') {
-        drawHeader(title2, nullptr, 0);
+        drawHeader(y, title2, nullptr, 0);
         y += TITLE_HEIGHT + 4;
 
         size_t count2 = 0;
@@ -225,11 +225,11 @@ void DisplayManager::setErrorInfo(const char* error) {
     errorText_ = error;
 }
 
-void DisplayManager::drawHeader(const char* title, const char* lastUpdate, time_t lastUpdateEpoch) {
-    epd_fill_rect(0, 0, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
+void DisplayManager::drawHeader(int y, const char* title, const char* lastUpdate, time_t lastUpdateEpoch) {
+    epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
 
     // Title on the left
-    draw_text(MARGIN, 30, title, C_WHITE, C_BLACK, true);
+    draw_text(MARGIN, y + 30, title, C_WHITE, C_BLACK, true);
 
     // Header elements are right-aligned.
     int rightX = EPD_WIDTH - MARGIN;
@@ -240,10 +240,10 @@ void DisplayManager::drawHeader(const char* title, const char* lastUpdate, time_
         int pctW = text_width(pct.c_str());
         rightX -= pctW;
         uint8_t pctColor = batteryLow_ ? C_LIGHT : C_WHITE;
-        draw_text(rightX, 30, pct.c_str(), pctColor, C_BLACK, true);
+        draw_text(rightX, y + 30, pct.c_str(), pctColor, C_BLACK, true);
 
         rightX -= (BATTERY_W + 6);
-        drawBatteryIcon(rightX, (TITLE_HEIGHT - BATTERY_H) / 2, batteryPercent_);
+        drawBatteryIcon(rightX, y + (TITLE_HEIGHT - BATTERY_H) / 2, batteryPercent_);
         rightX -= 8;
     }
 
@@ -257,30 +257,36 @@ void DisplayManager::drawHeader(const char* title, const char* lastUpdate, time_
             stale = difftime(now, lastUpdateEpoch) > 600;  // older than 10 minutes
         }
         uint8_t updateColor = stale ? C_LIGHT : C_WHITE;
-        draw_text(rightX, 30, lastUpdate, updateColor, C_BLACK, true);
+        draw_text(rightX, y + 30, lastUpdate, updateColor, C_BLACK, true);
         rightX -= 8;
     }
 
     // Warning icon if an error is set
     if (errorText_ != nullptr && errorText_[0] != '\0') {
         rightX -= WARNING_SIZE;
-        drawWarningIcon(rightX, (TITLE_HEIGHT - WARNING_SIZE) / 2);
+        drawWarningIcon(rightX, y + (TITLE_HEIGHT - WARNING_SIZE) / 2);
     }
 }
 
 void DisplayManager::drawVehicleIcon(int x, int y, const String& mode) {
-    // Simple monochrome icons drawn from basic shapes.
+    // Icons expect mode to be normalized to one of: bus, train, subway, tram.
     uint8_t color = C_BLACK;
+    int cx = x + ICON_SIZE / 2;
     int cy = y + ICON_SIZE / 2;
 
     if (mode.equalsIgnoreCase("bus")) {
-        // Bus front: rounded rectangle with windows and two wheels
-        epd_fill_rect(x + 2, y + 4, ICON_SIZE - 4, ICON_SIZE - 10, C_LIGHT, framebuffer);
-        epd_draw_rect(x + 2, y + 4, ICON_SIZE - 4, ICON_SIZE - 10, color, framebuffer);
-        epd_fill_rect(x + 5, y + 7, 5, 5, C_WHITE, framebuffer);
-        epd_fill_rect(x + 14, y + 7, 5, 5, C_WHITE, framebuffer);
-        epd_fill_circle(x + 7, y + ICON_SIZE - 5, 3, color, framebuffer);
-        epd_fill_circle(x + ICON_SIZE - 7, y + ICON_SIZE - 5, 3, color, framebuffer);
+        // Bus front view
+        int bodyX = x + 2;
+        int bodyY = y + 3;
+        int bodyW = ICON_SIZE - 4;
+        int bodyH = ICON_SIZE - 10;
+        epd_fill_rect(bodyX, bodyY, bodyW, bodyH, C_LIGHT, framebuffer);
+        epd_draw_rect(bodyX, bodyY, bodyW, bodyH, color, framebuffer);
+        // Windshield
+        epd_fill_rect(bodyX + 3, bodyY + 2, bodyW - 6, 6, C_WHITE, framebuffer);
+        // Wheels
+        epd_fill_circle(bodyX + 5, bodyY + bodyH + 3, 3, color, framebuffer);
+        epd_fill_circle(bodyX + bodyW - 5, bodyY + bodyH + 3, 3, color, framebuffer);
     } else if (mode.equalsIgnoreCase("train") ||
                mode.equalsIgnoreCase("subway") ||
                mode.equalsIgnoreCase("tram") ||
@@ -289,16 +295,23 @@ void DisplayManager::drawVehicleIcon(int x, int y, const String& mode) {
                mode.equalsIgnoreCase("regionalExp") ||
                mode.equalsIgnoreCase("national") ||
                mode.equalsIgnoreCase("nationalExpress")) {
-        // Train front: body with roof and two wheels
-        epd_fill_rect(x + 2, y + 8, ICON_SIZE - 4, ICON_SIZE - 14, C_LIGHT, framebuffer);
-        epd_draw_rect(x + 2, y + 8, ICON_SIZE - 4, ICON_SIZE - 14, color, framebuffer);
-        epd_fill_rect(x + 6, y + 4, ICON_SIZE - 12, 4, color, framebuffer);
-        epd_fill_rect(x + 5, y + 11, ICON_SIZE - 10, 4, C_WHITE, framebuffer);
-        epd_fill_circle(x + 7, y + ICON_SIZE - 5, 3, color, framebuffer);
-        epd_fill_circle(x + ICON_SIZE - 7, y + ICON_SIZE - 5, 3, color, framebuffer);
+        // Train front view
+        int bodyX = x + 2;
+        int bodyY = y + 6;
+        int bodyW = ICON_SIZE - 4;
+        int bodyH = ICON_SIZE - 12;
+        epd_fill_rect(bodyX, bodyY, bodyW, bodyH, C_LIGHT, framebuffer);
+        epd_draw_rect(bodyX, bodyY, bodyW, bodyH, color, framebuffer);
+        // Pantograph / roof
+        epd_fill_rect(bodyX + 6, bodyY - 4, bodyW - 12, 4, color, framebuffer);
+        // Front window
+        epd_fill_rect(bodyX + 3, bodyY + 2, bodyW - 6, 6, C_WHITE, framebuffer);
+        // Wheels
+        epd_fill_circle(bodyX + 5, bodyY + bodyH + 3, 3, color, framebuffer);
+        epd_fill_circle(bodyX + bodyW - 5, bodyY + bodyH + 3, 3, color, framebuffer);
     } else {
         // Generic circle for unknown modes
-        epd_draw_circle(x + ICON_SIZE / 2, cy, ICON_SIZE / 2 - 2, color, framebuffer);
+        epd_draw_circle(cx, cy, ICON_SIZE / 2 - 2, color, framebuffer);
     }
 }
 
@@ -363,7 +376,9 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
 
     if (imminent) {
         int pad = 8;
-        epd_fill_rect(timeX - pad, y + 10, timeW + 2 * pad, ROW_HEIGHT - 20, C_BLACK, framebuffer);
+        int boxH = ROW_HEIGHT - 8;
+        int boxY = y + 4;
+        epd_fill_rect(timeX - pad, boxY, timeW + 2 * pad, boxH, C_BLACK, framebuffer);
         draw_text(timeX, y + 38, timeStr.c_str(), C_WHITE, C_BLACK, true);
     } else {
         draw_text(timeX, y + 38, timeStr.c_str(), C_BLACK, bg, true);

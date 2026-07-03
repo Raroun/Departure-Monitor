@@ -83,6 +83,19 @@ static time_t parseUtcIsoTime(const char* str) {
     return utc_mktime(&tm);
 }
 
+// Normalizes product/mode strings from various APIs to a small set of icons.
+static String normalizeMode(const String& raw) {
+    String m = raw;
+    m.toLowerCase();
+    if (m.indexOf("bus") >= 0) return String("bus");
+    if (m.indexOf("s-bahn") >= 0 || m.indexOf("sbahn") >= 0) return String("train");
+    if (m.indexOf("regional") >= 0 || m.indexOf("fern") >= 0) return String("train");
+    if (m.indexOf("bahn") >= 0 || m.indexOf("zug") >= 0) return String("train");
+    if (m.indexOf("u-bahn") >= 0 || m.indexOf("ubahn") >= 0 || m.indexOf("subway") >= 0) return String("subway");
+    if (m.indexOf("straßenbahn") >= 0 || m.indexOf("tram") >= 0) return String("tram");
+    return String("bus");  // safe fallback
+}
+
 static bool parseVrrDepartures(const JsonDocument& doc, std::vector<Departure>& out) {
     out.clear();
     time_t now = time(nullptr);
@@ -99,7 +112,7 @@ static bool parseVrrDepartures(const JsonDocument& doc, std::vector<Departure>& 
         JsonObjectConst transportation = event["transportation"];
         d.line = transportation["disassembledName"] | transportation["number"] | "?";
         d.direction = transportation["destination"]["name"] | "?";
-        d.mode = transportation["product"]["name"] | "bus";
+        d.mode = normalizeMode(transportation["product"]["name"] | "bus");
 
         // VRR EFA returns times as UTC ISO strings (ending in 'Z')
         d.when = event["departureTimeEstimated"] | event["departureTimePlanned"] | "";
@@ -136,7 +149,7 @@ static bool parseTransportRestDepartures(const JsonDocument& doc, std::vector<De
         Departure d;
         d.line = dep["line"]["name"] | "?";
         d.direction = dep["direction"] | "?";
-        d.mode = dep["line"]["mode"] | "bus";
+        d.mode = normalizeMode(dep["line"]["mode"] | "bus");
         d.when = dep["when"] | "";
         d.plannedWhen = dep["plannedWhen"] | "";
         d.cancelled = dep["cancelled"] | false;
