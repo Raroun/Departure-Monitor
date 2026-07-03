@@ -404,10 +404,10 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
         String delayStr = "+" + String(dep.delayMinutes);
         int delayW = text_width(delayStr.c_str());
         int delayX = timeX - delayW - 20;
-        int delayY = y + 12;
-        int badgeH = 36;
+        int delayY = y + 8;
+        int badgeH = 44;
         epd_fill_rect(delayX - 5, delayY, delayW + 10, badgeH, C_BLACK, framebuffer);
-        draw_text(delayX, delayY + 26, delayStr.c_str(), C_WHITE, C_BLACK, true);
+        draw_text(delayX, delayY + 30, delayStr.c_str(), C_WHITE, C_BLACK, true);
     }
 
     // Cancelled indicator
