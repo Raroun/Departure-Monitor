@@ -383,8 +383,8 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
     int timeW = text_width(timeStr.c_str());
     int timeX = EPD_WIDTH - MARGIN - timeW;
 
-    // Highlight imminent departures (no background when delayed).
-    bool imminent = (dep.minutesUntil >= 0 && dep.minutesUntil <= 5);
+    // Highlight imminent departures, but not for "Now".
+    bool imminent = (dep.minutesUntil > 0 && dep.minutesUntil <= 5);
     if (dep.cancelled) {
         imminent = false;
     }
@@ -404,10 +404,10 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
         String delayStr = "+" + String(dep.delayMinutes);
         int delayW = text_width(delayStr.c_str());
         int delayX = timeX - delayW - 20;
-        int delayY = y + 14;
-        int badgeH = 30;
+        int delayY = y + 12;
+        int badgeH = 36;
         epd_fill_rect(delayX - 5, delayY, delayW + 10, badgeH, C_BLACK, framebuffer);
-        draw_text(delayX, delayY + 23, delayStr.c_str(), C_WHITE, C_BLACK, true);
+        draw_text(delayX, delayY + 26, delayStr.c_str(), C_WHITE, C_BLACK, true);
     }
 
     // Cancelled indicator
