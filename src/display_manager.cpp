@@ -165,11 +165,12 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
     size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
     memset(framebuffer, 0xFF, fb_size);
 
-    int y = 0;
+    // Start a bit lower so nothing is clipped at the top edge.
+    int y = MARGIN;
 
     // Section 1
     if (title1 != nullptr && title1[0] != '\0') {
-        drawHeader(y, title1, lastUpdate, lastUpdateEpoch);
+        drawHeader(y, title1, lastUpdate, lastUpdateEpoch, true);
         y += TITLE_HEIGHT + 4;
     }
 
@@ -195,7 +196,7 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
     }
 
     if (title2 != nullptr && title2[0] != '\0') {
-        drawHeader(y, title2, nullptr, 0);
+        drawHeader(y, title2, nullptr, 0, false);
         y += TITLE_HEIGHT + 4;
 
         size_t count2 = 0;
@@ -225,7 +226,7 @@ void DisplayManager::setErrorInfo(const char* error) {
     errorText_ = error;
 }
 
-void DisplayManager::drawHeader(int y, const char* title, const char* lastUpdate, time_t lastUpdateEpoch) {
+void DisplayManager::drawHeader(int y, const char* title, const char* lastUpdate, time_t lastUpdateEpoch, bool showBattery) {
     epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
 
     // Title on the left
@@ -234,8 +235,8 @@ void DisplayManager::drawHeader(int y, const char* title, const char* lastUpdate
     // Header elements are right-aligned.
     int rightX = EPD_WIDTH - MARGIN;
 
-    // Battery icon + percentage
-    if (batteryPercent_ >= 0) {
+    // Battery icon + percentage (only in the first header)
+    if (showBattery && batteryPercent_ >= 0) {
         String pct = String(batteryPercent_) + "%";
         int pctW = text_width(pct.c_str());
         rightX -= pctW;
@@ -295,20 +296,33 @@ void DisplayManager::drawVehicleIcon(int x, int y, const String& mode) {
                mode.equalsIgnoreCase("regionalExp") ||
                mode.equalsIgnoreCase("national") ||
                mode.equalsIgnoreCase("nationalExpress")) {
-        // Train front view
+        // Train front view similar to the user-supplied icon.
         int bodyX = x + 2;
-        int bodyY = y + 6;
         int bodyW = ICON_SIZE - 4;
-        int bodyH = ICON_SIZE - 12;
-        epd_fill_rect(bodyX, bodyY, bodyW, bodyH, C_LIGHT, framebuffer);
-        epd_draw_rect(bodyX, bodyY, bodyW, bodyH, color, framebuffer);
-        // Pantograph / roof
-        epd_fill_rect(bodyX + 6, bodyY - 4, bodyW - 12, 4, color, framebuffer);
-        // Front window
-        epd_fill_rect(bodyX + 3, bodyY + 2, bodyW - 6, 6, C_WHITE, framebuffer);
-        // Wheels
-        epd_fill_circle(bodyX + 5, bodyY + bodyH + 3, 3, color, framebuffer);
-        epd_fill_circle(bodyX + bodyW - 5, bodyY + bodyH + 3, 3, color, framebuffer);
+        int bodyH = ICON_SIZE - 10;
+        int radius = bodyW / 2;
+        int circleY = y + 2 + radius;
+
+        // Rounded top body: circle on top + rectangle below
+        epd_fill_circle(bodyX + radius, circleY, radius, color, framebuffer);
+        epd_fill_rect(bodyX, circleY, bodyW, bodyH - radius, color, framebuffer);
+
+        // Large front window
+        int winX = bodyX + 3;
+        int winY = circleY - radius + 3;
+        int winW = bodyW - 6;
+        int winH = bodyH - radius - 2;
+        epd_fill_rect(winX, winY, winW, winH, C_WHITE, framebuffer);
+
+        // Headlights
+        int lightY = circleY + (bodyH - radius) / 2 + 2;
+        epd_fill_circle(bodyX + 6, lightY, 3, C_WHITE, framebuffer);
+        epd_fill_circle(bodyX + bodyW - 6, lightY, 3, C_WHITE, framebuffer);
+
+        // Rails / sleepers (two diagonal lines)
+        int railTopY = circleY + bodyH - radius;
+        epd_draw_line(bodyX, railTopY, bodyX - 4, railTopY + 8, color, framebuffer);
+        epd_draw_line(bodyX + bodyW, railTopY, bodyX + bodyW + 4, railTopY + 8, color, framebuffer);
     } else {
         // Generic circle for unknown modes
         epd_draw_circle(cx, cy, ICON_SIZE / 2 - 2, color, framebuffer);

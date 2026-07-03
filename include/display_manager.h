@@ -48,7 +48,7 @@ class DisplayManager {
     void drawVehicleIcon(int x, int y, const String& mode);
     void drawBatteryIcon(int x, int y, int percent);
     void drawWarningIcon(int x, int y);
-    void drawHeader(int y, const char* title, const char* lastUpdate = nullptr, time_t lastUpdateEpoch = 0);
+    void drawHeader(int y, const char* title, const char* lastUpdate, time_t lastUpdateEpoch, bool showBattery);
 
     int batteryPercent_ = -1;
     bool batteryLow_ = false;
