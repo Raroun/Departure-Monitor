@@ -82,37 +82,62 @@ void DisplayManager::showNightMode(const char* timeStr, const char* dateStr) {
     (void)dateStr;  // Not used – screen stays static
 
     size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
-    memset(framebuffer, 0xFF, fb_size);
+    memset(framebuffer, 0x00, fb_size);  // black night sky
 
-    int y = MARGIN;
-
-    // Black header bar with title
-    epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
-    draw_text(MARGIN, y + 30, "Night Mode", C_WHITE, C_BLACK, true);
-    y += TITLE_HEIGHT + 80;
-
-    // Decorative frame
-    int boxY = y;
-    int boxH = 220;
-    epd_draw_rect(MARGIN, boxY, EPD_WIDTH - 2 * MARGIN, boxH, C_DARK, framebuffer);
-    epd_draw_rect(MARGIN + 4, boxY + 4, EPD_WIDTH - 2 * MARGIN - 8, boxH - 8, C_LIGHT, framebuffer);
-
-    // Large static offline text
-    const char* offline = "Offline";
-    int offW = text_width(offline);
-    int offX = (EPD_WIDTH - offW) / 2;
-    int offY = boxY + 90;
-    for (int dx = -1; dx <= 1; ++dx) {
-        for (int dy = -1; dy <= 1; ++dy) {
-            draw_text(offX + dx, offY + dy, offline, C_BLACK, C_WHITE, true);
+    // Deterministic stars so the screen looks identical after every wake-up.
+    srand(0xBADC0FFE);
+    for (int i = 0; i < 140; ++i) {
+        int x = 10 + rand() % (EPD_WIDTH - 20);
+        int y = 10 + rand() % (EPD_HEIGHT - 130);
+        int r = rand() % 5;  // 0..2 px-ish
+        uint8_t color = (rand() % 3 == 0) ? C_LIGHT : C_WHITE;
+        if (r <= 1) {
+            epd_fill_rect(x, y, 1, 1, color, framebuffer);
+        } else {
+            epd_fill_rect(x, y, r, r, color, framebuffer);
         }
     }
 
-    // Additional info at the bottom
+    // Moon (top right)
+    const int mx = 780, my = 130, mr = 70;
+    epd_fill_circle(mx, my, mr, C_LIGHT, framebuffer);
+    // Craters
+    epd_fill_circle(mx - 20, my - 15, 12, C_DARK, framebuffer);
+    epd_fill_circle(mx + 15, my + 20, 9, C_DARK, framebuffer);
+    epd_fill_circle(mx + 25, my - 25, 7, C_DARK, framebuffer);
+    epd_fill_circle(mx - 10, my + 30, 6, C_DARK, framebuffer);
+
+    // Ground silhouette at the bottom
+    int groundY = EPD_HEIGHT - 45;
+    int step = 50;
+    for (int x = 0; x < EPD_WIDTH; x += step) {
+        int nextX = x + step;
+        if (nextX > EPD_WIDTH) nextX = EPD_WIDTH;
+        int peakY = groundY - (10 + rand() % 26);
+        epd_fill_triangle(x, EPD_HEIGHT, (x + nextX) / 2, peakY, nextX, EPD_HEIGHT, C_DARK, framebuffer);
+    }
+
+    // Title
+    draw_text(MARGIN, MARGIN + 20, "Night Mode", C_WHITE, C_BLACK, true);
+
+    // Large "Offline" text with a subtle outline
+    const char* offline = "Offline";
+    int offW = text_width(offline);
+    int offX = (EPD_WIDTH - offW) / 2;
+    int offY = (EPD_HEIGHT - 80) / 2;
+    for (int dx = -1; dx <= 1; ++dx) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            if (dx == 0 && dy == 0) continue;
+            draw_text(offX + dx, offY + dy, offline, C_DARK, C_BLACK, true);
+        }
+    }
+    draw_text(offX, offY, offline, C_WHITE, C_BLACK, true);
+
+    // Info text directly below Offline
     const char* info = "Updates resume at 05:00";
     int infoW = text_width(info);
     int infoX = (EPD_WIDTH - infoW) / 2;
-    draw_text(infoX, EPD_HEIGHT - MARGIN - 50, info, C_DARK, C_WHITE, true);
+    draw_text(infoX, offY + 60, info, C_LIGHT, C_BLACK, true);
 
     epd_poweron();
     epd_clear();
