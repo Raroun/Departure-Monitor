@@ -7,7 +7,9 @@
 static constexpr float VOLTAGE_DIVIDER_RATIO = 2.0f;
 static constexpr float ADC_REF_VOLTAGE = 3.3f;
 static constexpr int ADC_RESOLUTION = 4095;  // 12-bit
-static constexpr float BATTERY_FULL = 4.2f;
+// Calibrated full voltage: on this board the ADC never reports above ~4.0 V
+// even with a fully charged cell, so we use that as 100% instead of 4.2 V.
+static constexpr float BATTERY_FULL = 4.0f;
 static constexpr float BATTERY_EMPTY = 3.0f;
 
 BatteryManager::BatteryManager() : lastPercent_(-1) {}
