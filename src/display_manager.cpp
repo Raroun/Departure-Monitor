@@ -16,7 +16,7 @@ static const char* TAG = "Display";
 #define C_WHITE 0xFF
 
 #define ROW_HEIGHT       58
-#define TITLE_HEIGHT     42
+#define TITLE_HEIGHT     50
 #define MARGIN           16
 #define MAX_PER_SECTION  5
 
@@ -229,11 +229,33 @@ void DisplayManager::setErrorInfo(const char* error) {
 void DisplayManager::drawHeader(int y, const char* title, const char* lastUpdate, time_t lastUpdateEpoch, bool showBattery) {
     epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
 
+    // Vertical center of the header text (FiraSans is drawn from the baseline).
+    int textY = y + 38;
+
     // Title on the left
-    draw_text(MARGIN, y + 30, title, C_WHITE, C_BLACK, true);
+    draw_text(MARGIN, textY, title, C_WHITE, C_BLACK, true);
+
+    // Last update time centered
+    if (lastUpdate != nullptr && lastUpdate[0] != '\0') {
+        int updateW = text_width(lastUpdate);
+        bool stale = false;
+        if (lastUpdateEpoch > 0) {
+            time_t now = time(nullptr);
+            stale = difftime(now, lastUpdateEpoch) > 600;  // older than 10 minutes
+        }
+        uint8_t updateColor = stale ? C_LIGHT : C_WHITE;
+        draw_text((EPD_WIDTH - updateW) / 2, textY, lastUpdate, updateColor, C_BLACK, true);
+    }
 
     // Header elements are right-aligned.
     int rightX = EPD_WIDTH - MARGIN;
+
+    // Warning icon if an error is set
+    if (errorText_ != nullptr && errorText_[0] != '\0') {
+        rightX -= WARNING_SIZE;
+        drawWarningIcon(rightX, y + (TITLE_HEIGHT - WARNING_SIZE) / 2);
+        rightX -= 8;
+    }
 
     // Battery icon + percentage (only in the first header)
     if (showBattery && batteryPercent_ >= 0) {
@@ -241,31 +263,10 @@ void DisplayManager::drawHeader(int y, const char* title, const char* lastUpdate
         int pctW = text_width(pct.c_str());
         rightX -= pctW;
         uint8_t pctColor = batteryLow_ ? C_LIGHT : C_WHITE;
-        draw_text(rightX, y + 30, pct.c_str(), pctColor, C_BLACK, true);
+        draw_text(rightX, textY, pct.c_str(), pctColor, C_BLACK, true);
 
         rightX -= (BATTERY_W + 6);
         drawBatteryIcon(rightX, y + (TITLE_HEIGHT - BATTERY_H) / 2, batteryPercent_);
-        rightX -= 8;
-    }
-
-    // Last update time
-    if (lastUpdate != nullptr && lastUpdate[0] != '\0') {
-        int updateW = text_width(lastUpdate);
-        rightX -= updateW;
-        bool stale = false;
-        if (lastUpdateEpoch > 0) {
-            time_t now = time(nullptr);
-            stale = difftime(now, lastUpdateEpoch) > 600;  // older than 10 minutes
-        }
-        uint8_t updateColor = stale ? C_LIGHT : C_WHITE;
-        draw_text(rightX, y + 30, lastUpdate, updateColor, C_BLACK, true);
-        rightX -= 8;
-    }
-
-    // Warning icon if an error is set
-    if (errorText_ != nullptr && errorText_[0] != '\0') {
-        rightX -= WARNING_SIZE;
-        drawWarningIcon(rightX, y + (TITLE_HEIGHT - WARNING_SIZE) / 2);
     }
 }
 
@@ -403,9 +404,10 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
         String delayStr = "+" + String(dep.delayMinutes);
         int delayW = text_width(delayStr.c_str());
         int delayX = timeX - delayW - 18;
-        int delayY = y + 16;
-        epd_fill_rect(delayX - 4, delayY - 2, delayW + 8, 24, C_BLACK, framebuffer);
-        draw_text(delayX, delayY + 18, delayStr.c_str(), C_WHITE, C_BLACK, true);
+        int delayY = y + 14;
+        int badgeH = 30;
+        epd_fill_rect(delayX - 5, delayY, delayW + 10, badgeH, C_BLACK, framebuffer);
+        draw_text(delayX, delayY + 23, delayStr.c_str(), C_WHITE, C_BLACK, true);
     }
 
     // Cancelled indicator
