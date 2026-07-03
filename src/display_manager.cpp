@@ -383,19 +383,10 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
     int timeW = text_width(timeStr.c_str());
     int timeX = EPD_WIDTH - MARGIN - timeW;
 
-    // Highlight departures that are soon or delayed.
-    bool imminent = (dep.minutesUntil >= 0 && dep.minutesUntil <= 5) || dep.delayMinutes > 0;
+    // Highlight imminent departures (no background when delayed).
+    bool imminent = (dep.minutesUntil >= 0 && dep.minutesUntil <= 5);
     if (dep.cancelled) {
         imminent = false;
-    }
-
-    // Delay indicator (no black background, just text)
-    int delayX = timeX;
-    if (!dep.cancelled && dep.delayMinutes > 0) {
-        String delayStr = "+" + String(dep.delayMinutes);
-        int delayW = text_width(delayStr.c_str());
-        delayX = timeX - delayW - 12;
-        draw_text(delayX, y + 38, delayStr.c_str(), C_BLACK, bg, true);
     }
 
     if (imminent) {
@@ -406,6 +397,17 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
         draw_text(timeX, y + 38, timeStr.c_str(), C_WHITE, C_BLACK, true);
     } else {
         draw_text(timeX, y + 38, timeStr.c_str(), C_BLACK, bg, true);
+    }
+
+    // Delay badge with black background, placed further left of the time.
+    if (!dep.cancelled && dep.delayMinutes > 0) {
+        String delayStr = "+" + String(dep.delayMinutes);
+        int delayW = text_width(delayStr.c_str());
+        int delayX = timeX - delayW - 20;
+        int delayY = y + 14;
+        int badgeH = 30;
+        epd_fill_rect(delayX - 5, delayY, delayW + 10, badgeH, C_BLACK, framebuffer);
+        draw_text(delayX, delayY + 23, delayStr.c_str(), C_WHITE, C_BLACK, true);
     }
 
     // Cancelled indicator
