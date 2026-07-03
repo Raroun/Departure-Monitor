@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 static const char* TAG = "Display";
 
@@ -18,6 +19,11 @@ static const char* TAG = "Display";
 #define TITLE_HEIGHT     42
 #define MARGIN           16
 #define MAX_PER_SECTION  5
+
+#define ICON_SIZE        24
+#define BATTERY_W        28
+#define BATTERY_H        14
+#define WARNING_SIZE     22
 
 static uint8_t* framebuffer = nullptr;
 
@@ -63,13 +69,16 @@ bool DisplayManager::begin() {
     return true;
 }
 
-void DisplayManager::showMessage(const char* title, const char* message) {
+void DisplayManager::showMessage(const char* title, const char* message, const char* detail) {
     size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
     memset(framebuffer, 0xFF, fb_size);
 
     draw_text(MARGIN, MARGIN + 40, title, C_BLACK, C_WHITE, true);
     epd_draw_line(MARGIN, MARGIN + 55, EPD_WIDTH - MARGIN, MARGIN + 55, C_DARK, framebuffer);
     draw_text(MARGIN, MARGIN + 95, message, C_DARK, C_WHITE, true);
+    if (detail != nullptr && detail[0] != '\0') {
+        draw_text(MARGIN, MARGIN + 145, detail, C_LIGHT, C_WHITE, true);
+    }
 
     epd_poweron();
     epd_clear();
@@ -146,28 +155,21 @@ void DisplayManager::showNightMode(const char* timeStr, const char* dateStr) {
 }
 
 void DisplayManager::showDepartures(const char* stopName, const std::vector<Departure>& departures) {
-    showDepartures(stopName, departures, MAX_PER_SECTION, nullptr, {}, 0);
+    showDepartures(stopName, departures, MAX_PER_SECTION, nullptr, {}, 0, nullptr, 0);
 }
 
 void DisplayManager::showDepartures(const char* title1, const std::vector<Departure>& deps1, size_t max1,
                                     const char* title2, const std::vector<Departure>& deps2, size_t max2,
-                                    const char* lastUpdate) {
+                                    const char* lastUpdate,
+                                    time_t lastUpdateEpoch) {
     size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
     memset(framebuffer, 0xFF, fb_size);
 
-    int y = MARGIN;
+    int y = 0;
 
     // Section 1
     if (title1 != nullptr && title1[0] != '\0') {
-        epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
-        draw_text(MARGIN, y + 30, title1, C_WHITE, C_BLACK, true);
-
-        // Show last update time in the top-right corner
-        if (lastUpdate != nullptr && lastUpdate[0] != '\0') {
-            int tw = text_width(lastUpdate);
-            draw_text(EPD_WIDTH - MARGIN - tw, y + 30, lastUpdate, C_WHITE, C_BLACK, true);
-        }
-
+        drawHeader(title1, lastUpdate, lastUpdateEpoch);
         y += TITLE_HEIGHT + 4;
     }
 
@@ -193,8 +195,7 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
     }
 
     if (title2 != nullptr && title2[0] != '\0') {
-        epd_fill_rect(0, y, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
-        draw_text(MARGIN, y + 30, title2, C_WHITE, C_BLACK, true);
+        drawHeader(title2, nullptr, 0);
         y += TITLE_HEIGHT + 4;
 
         size_t count2 = 0;
@@ -215,37 +216,183 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
     epd_poweroff();
 }
 
+void DisplayManager::setBatteryInfo(int percent, bool low) {
+    batteryPercent_ = percent;
+    batteryLow_ = low;
+}
+
+void DisplayManager::setErrorInfo(const char* error) {
+    errorText_ = error;
+}
+
+void DisplayManager::drawHeader(const char* title, const char* lastUpdate, time_t lastUpdateEpoch) {
+    epd_fill_rect(0, 0, EPD_WIDTH, TITLE_HEIGHT, C_BLACK, framebuffer);
+
+    // Title on the left
+    draw_text(MARGIN, 30, title, C_WHITE, C_BLACK, true);
+
+    // Header elements are right-aligned.
+    int rightX = EPD_WIDTH - MARGIN;
+
+    // Battery icon + percentage
+    if (batteryPercent_ >= 0) {
+        String pct = String(batteryPercent_) + "%";
+        int pctW = text_width(pct.c_str());
+        rightX -= pctW;
+        uint8_t pctColor = batteryLow_ ? C_LIGHT : C_WHITE;
+        draw_text(rightX, 30, pct.c_str(), pctColor, C_BLACK, true);
+
+        rightX -= (BATTERY_W + 6);
+        drawBatteryIcon(rightX, (TITLE_HEIGHT - BATTERY_H) / 2, batteryPercent_);
+        rightX -= 8;
+    }
+
+    // Last update time
+    if (lastUpdate != nullptr && lastUpdate[0] != '\0') {
+        int updateW = text_width(lastUpdate);
+        rightX -= updateW;
+        bool stale = false;
+        if (lastUpdateEpoch > 0) {
+            time_t now = time(nullptr);
+            stale = difftime(now, lastUpdateEpoch) > 600;  // older than 10 minutes
+        }
+        uint8_t updateColor = stale ? C_LIGHT : C_WHITE;
+        draw_text(rightX, 30, lastUpdate, updateColor, C_BLACK, true);
+        rightX -= 8;
+    }
+
+    // Warning icon if an error is set
+    if (errorText_ != nullptr && errorText_[0] != '\0') {
+        rightX -= WARNING_SIZE;
+        drawWarningIcon(rightX, (TITLE_HEIGHT - WARNING_SIZE) / 2);
+    }
+}
+
+void DisplayManager::drawVehicleIcon(int x, int y, const String& mode) {
+    // Simple monochrome icons drawn from basic shapes.
+    uint8_t color = C_BLACK;
+    int cy = y + ICON_SIZE / 2;
+
+    if (mode.equalsIgnoreCase("bus")) {
+        // Bus front: rounded rectangle with windows and two wheels
+        epd_fill_rect(x + 2, y + 4, ICON_SIZE - 4, ICON_SIZE - 10, C_LIGHT, framebuffer);
+        epd_draw_rect(x + 2, y + 4, ICON_SIZE - 4, ICON_SIZE - 10, color, framebuffer);
+        epd_fill_rect(x + 5, y + 7, 5, 5, C_WHITE, framebuffer);
+        epd_fill_rect(x + 14, y + 7, 5, 5, C_WHITE, framebuffer);
+        epd_fill_circle(x + 7, y + ICON_SIZE - 5, 3, color, framebuffer);
+        epd_fill_circle(x + ICON_SIZE - 7, y + ICON_SIZE - 5, 3, color, framebuffer);
+    } else if (mode.equalsIgnoreCase("train") ||
+               mode.equalsIgnoreCase("subway") ||
+               mode.equalsIgnoreCase("tram") ||
+               mode.equalsIgnoreCase("suburban") ||
+               mode.equalsIgnoreCase("regional") ||
+               mode.equalsIgnoreCase("regionalExp") ||
+               mode.equalsIgnoreCase("national") ||
+               mode.equalsIgnoreCase("nationalExpress")) {
+        // Train front: body with roof and two wheels
+        epd_fill_rect(x + 2, y + 8, ICON_SIZE - 4, ICON_SIZE - 14, C_LIGHT, framebuffer);
+        epd_draw_rect(x + 2, y + 8, ICON_SIZE - 4, ICON_SIZE - 14, color, framebuffer);
+        epd_fill_rect(x + 6, y + 4, ICON_SIZE - 12, 4, color, framebuffer);
+        epd_fill_rect(x + 5, y + 11, ICON_SIZE - 10, 4, C_WHITE, framebuffer);
+        epd_fill_circle(x + 7, y + ICON_SIZE - 5, 3, color, framebuffer);
+        epd_fill_circle(x + ICON_SIZE - 7, y + ICON_SIZE - 5, 3, color, framebuffer);
+    } else {
+        // Generic circle for unknown modes
+        epd_draw_circle(x + ICON_SIZE / 2, cy, ICON_SIZE / 2 - 2, color, framebuffer);
+    }
+}
+
+void DisplayManager::drawBatteryIcon(int x, int y, int percent) {
+    uint8_t bodyColor = batteryLow_ ? C_LIGHT : C_WHITE;
+    // Battery body
+    epd_draw_rect(x, y, BATTERY_W - 3, BATTERY_H, bodyColor, framebuffer);
+    // Positive terminal
+    epd_fill_rect(x + BATTERY_W - 3, y + 4, 3, 6, bodyColor, framebuffer);
+
+    // Fill level
+    int fillW = ((BATTERY_W - 7) * percent) / 100;
+    if (fillW < 1) fillW = 1;
+    uint8_t fillColor = batteryLow_ ? C_DARK : C_WHITE;
+    epd_fill_rect(x + 2, y + 2, fillW, BATTERY_H - 4, fillColor, framebuffer);
+}
+
+void DisplayManager::drawWarningIcon(int x, int y) {
+    // Triangle with exclamation mark
+    int cx = x + WARNING_SIZE / 2;
+    epd_fill_triangle(cx, y, x, y + WARNING_SIZE, x + WARNING_SIZE, y + WARNING_SIZE, C_LIGHT, framebuffer);
+    epd_draw_line(cx, y + 6, cx, y + 13, C_BLACK, framebuffer);
+    epd_fill_rect(cx - 1, y + 15, 3, 3, C_BLACK, framebuffer);
+}
+
 void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
     uint8_t bg = (index % 2 == 1) ? C_LIGHT : C_WHITE;
     epd_fill_rect(0, y, EPD_WIDTH, ROW_HEIGHT, bg, framebuffer);
 
-    // Line
-    draw_text(MARGIN, y + 38, dep.line.c_str(), C_BLACK, bg, true);
+    int x = MARGIN;
+
+    // Vehicle icon
+    drawVehicleIcon(x, y + (ROW_HEIGHT - ICON_SIZE) / 2, dep.mode);
+    x += ICON_SIZE + 8;
+
+    // Line number
+    draw_text(x, y + 38, dep.line.c_str(), C_BLACK, bg, true);
+    int lineW = text_width(dep.line.c_str());
+    x += lineW + 16;
 
     // Direction (truncated if necessary)
     String direction = dep.direction;
-    if (direction.length() > 30) {
-        direction = direction.substring(0, 27) + "...";
+    if (direction.length() > 26) {
+        direction = direction.substring(0, 23) + "...";
     }
-    draw_text(MARGIN + 110, y + 36, direction.c_str(), C_BLACK, bg, true);
+    int maxDirW = EPD_WIDTH - MARGIN - x - 160;
+    while (text_width(direction.c_str()) > maxDirW && direction.length() > 3) {
+        direction = direction.substring(0, direction.length() - 4) + "...";
+    }
+    draw_text(x, y + 36, direction.c_str(), C_BLACK, bg, true);
 
     // Departure time right-aligned
     String timeStr = formatTime(dep.minutesUntil);
+    int timeW = text_width(timeStr.c_str());
+    int timeX = EPD_WIDTH - MARGIN - timeW;
+
+    // Highlight imminent departures
+    bool imminent = (dep.minutesUntil >= 0 && dep.minutesUntil <= 5);
     if (dep.cancelled) {
-        timeStr = "cancelled";
-    } else if (dep.delayMinutes > 0) {
-        timeStr += " +" + String(dep.delayMinutes);
+        imminent = false;
     }
 
-    int tw = text_width(timeStr.c_str());
-    draw_text(EPD_WIDTH - MARGIN - tw, y + 38, timeStr.c_str(), C_BLACK, bg, true);
+    if (imminent) {
+        int pad = 8;
+        epd_fill_rect(timeX - pad, y + 10, timeW + 2 * pad, ROW_HEIGHT - 20, C_BLACK, framebuffer);
+        draw_text(timeX, y + 38, timeStr.c_str(), C_WHITE, C_BLACK, true);
+    } else {
+        draw_text(timeX, y + 38, timeStr.c_str(), C_BLACK, bg, true);
+    }
+
+    // Delay badge
+    if (!dep.cancelled && dep.delayMinutes > 0) {
+        String delayStr = "+" + String(dep.delayMinutes);
+        int delayW = text_width(delayStr.c_str());
+        int delayX = timeX - delayW - 18;
+        int delayY = y + 16;
+        epd_fill_rect(delayX - 4, delayY - 2, delayW + 8, 24, C_BLACK, framebuffer);
+        draw_text(delayX, delayY + 18, delayStr.c_str(), C_WHITE, C_BLACK, true);
+    }
+
+    // Cancelled indicator
+    if (dep.cancelled) {
+        String cancelledStr = "cancelled";
+        int cw = text_width(cancelledStr.c_str());
+        int cx = EPD_WIDTH - MARGIN - cw;
+        draw_text(cx, y + 38, cancelledStr.c_str(), C_DARK, bg, true);
+    }
 
     // Thin separator line
     epd_draw_line(MARGIN, y + ROW_HEIGHT - 1, EPD_WIDTH - MARGIN, y + ROW_HEIGHT - 1, C_DARK, framebuffer);
 }
 
 String DisplayManager::formatTime(long minutesUntil) {
-    if (minutesUntil <= 0) return String("now");
+    if (minutesUntil <= 0) return String("Now");
     if (minutesUntil < 60) return String(minutesUntil) + " min";
 
     long hours = minutesUntil / 60;

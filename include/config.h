@@ -57,10 +57,11 @@ extern const size_t STOP2_DIRECTIONS_COUNT;
 #define MAX_DEPARTURES 55
 
 // Update intervals in seconds
-#define DAY_INTERVAL_SEC       180   // every 3 minutes during the day
-#define NIGHT_INTERVAL_SEC     7200  // every 2 hours at night (night-mode screen only)
-#define NIGHT_START_HOUR       21    // 21:00: hardly any updates needed in the evening
-#define NIGHT_END_HOUR         5     // 05:00: from here on update every 2 minutes again
+#define DAY_INTERVAL_SEC          180   // every 3 minutes during the day
+#define NIGHT_INTERVAL_SEC        7200  // every 2 hours at night (night-mode screen only)
+#define LOW_BATTERY_INTERVAL_SEC  600   // every 10 minutes when battery is low (< 20%)
+#define NIGHT_START_HOUR          21    // 21:00: hardly any updates needed in the evening
+#define NIGHT_END_HOUR            5     // 05:00: from here on update every 2 minutes again
 
 // ============================================
 // Display Configuration

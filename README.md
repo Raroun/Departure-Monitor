@@ -16,10 +16,17 @@ The device connects to a public transport API over Wi-Fi, fetches upcoming depar
 - Per-stop line and direction filters
 - Per-line next-departure selection for the train station, so S2 / RE3 / RB32 are always shown
 - Displays line, destination, remaining minutes and delay
-- Last update time shown top-right
+- Vehicle-type icons (bus / train) in front of each departure
+- Imminent departures (≤ 5 min) highlighted with an inverted box
+- "Now" for departures in less than one minute
+- Delay shown as a compact `+x` badge
+- Last update time shown top-right; timestamp turns gray when data is older than 10 minutes
+- Battery level indicator in the header
+- Low-battery mode: updates every 10 minutes when charge drops below 20%
+- Detailed error screens (WiFi / NTP / API / no data)
 - Day/night mode:
   - Day (05:00–21:00): updates every 3 minutes
-  - Night (21:00–05:00): shows a static "Offline" screen and sleeps in 2-hour intervals until morning
+  - Night (21:00–05:00): shows a decorative star/moon/landscape "Offline" screen and sleeps in 2-hour intervals until morning
 - E-Ink display with 4 gray levels (960 × 540 px)
 - Deep sleep between updates with Wi-Fi and Bluetooth powered down
 - Fits in a custom 3D-printed case
@@ -34,10 +41,12 @@ The device connects to a public transport API over Wi-Fi, fetches upcoming depar
 │   ├── departure.h       # Departure data structure
 │   ├── departure_api.h   # API client
 │   ├── display_manager.h # Display wrapper
+│   ├── battery_manager.h # Battery voltage reading
 │   └── wifi_manager.h    # Wi-Fi helper
 ├── src/
 │   ├── main.cpp          # Main flow
 │   ├── config.cpp        # Line / direction filters
+│   ├── battery_manager.cpp
 │   ├── departure_api.cpp
 │   ├── display_manager.cpp
 │   └── wifi_manager.cpp

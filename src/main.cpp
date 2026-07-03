@@ -4,6 +4,7 @@
 #include <esp_task_wdt.h>
 #include <time.h>
 
+#include "battery_manager.h"
 #include "config.h"
 #include "departure_api.h"
 #include "display_manager.h"
@@ -27,6 +28,7 @@ enum class ErrorCode : uint32_t {
 
 WiFiManager wifi(WIFI_SSID, WIFI_PASSWORD);
 DisplayManager display;
+BatteryManager battery;
 
 #if API_TYPE == API_VRR_EFA
 DepartureApi api1(API_BASE_URL, STOP1_PLACE, STOP1_ID);
@@ -160,6 +162,8 @@ void setupTime() {
 
     if (now < 1700000000) {
         setError(ErrorCode::NTP_SYNC_FAILED);
+        display.setErrorInfo("NTP");
+        display.showMessage("Warning", "NTP sync failed.", "Using RTC time if available.");
         Serial.printf("[%s] NTP sync failed, using RTC time if available\n", TAG);
     }
 }
@@ -176,6 +180,13 @@ unsigned long getSleepInterval() {
     int hour = timeinfo.tm_hour;
     bool isNight = isNightHour(hour);
     unsigned long interval = isNight ? NIGHT_INTERVAL_SEC : DAY_INTERVAL_SEC;
+
+    // Low battery: poll less often during the day to extend runtime.
+    if (!isNight && battery.isLow()) {
+        interval = LOW_BATTERY_INTERVAL_SEC;
+        Serial.printf("[%s] Battery low (%d%%), extending interval\n", TAG, battery.lastPercent());
+    }
+
     Serial.printf("[%s] Time of day: %02d:%02d -> %s, interval %lu sec\n",
                   TAG, timeinfo.tm_hour, timeinfo.tm_min,
                   isNight ? "night" : "day", interval);
@@ -226,6 +237,8 @@ void setup() {
     // Turn off Bluetooth completely to save power in deep sleep
     btStop();
 
+    battery.begin();
+
     // Distinguish cold boot vs. waking up from deep sleep.
     // After deep sleep we don't need intermediate screens – saves time, power
     // and avoids flickering.
@@ -241,6 +254,10 @@ void setup() {
         esp_sleep_enable_timer_wakeup(300 * 1000000ULL);
         esp_deep_sleep_start();
     }
+
+    int batteryPercent = battery.readPercent();
+    display.setBatteryInfo(batteryPercent, battery.isLow());
+    Serial.printf("[%s] Battery: %d%%\n", TAG, batteryPercent);
 
     // If the time is already known from RTC and it is night, skip Wi-Fi,
     // NTP and API requests completely.
@@ -259,7 +276,8 @@ void setup() {
 
     if (!wifi.connect()) {
         setError(ErrorCode::WIFI_CONNECT_FAILED);
-        display.showMessage("Error", "WiFi connection failed.\nPlease check configuration.");
+        display.setErrorInfo("WiFi");
+        display.showMessage("Error", "WiFi connection failed.", "Retrying in 3 minutes.");
         Serial.printf("[%s] WiFi failed, going to deep sleep...\n", TAG);
         goToSleep(DAY_INTERVAL_SEC);
     }
@@ -281,6 +299,12 @@ void setup() {
     std::vector<Departure> deps1, deps2;
     bool ok1 = api1.fetch(deps1);
     bool ok2 = api2.fetch(deps2);
+
+    if (!ok1 || !ok2) {
+        setError(ErrorCode::API_FETCH_FAILED);
+        display.setErrorInfo("API");
+        Serial.printf("[%s] API fetch failed (stop1=%s, stop2=%s)\n", TAG, ok1 ? "ok" : "fail", ok2 ? "ok" : "fail");
+    }
 
     Serial.printf("[%s] Raw data: Wesselstr=%u, Hbf=%u\n", TAG, deps1.size(), deps2.size());
 
@@ -315,14 +339,17 @@ void setup() {
         localtime_r(&now, &timeinfo);
         char lastUpdateStr[16];
         strftime(lastUpdateStr, sizeof(lastUpdateStr), "%H:%M", &timeinfo);
-        display.showDepartures(STOP1_TITLE, deps1, 4, STOP2_TITLE, deps2PerLine, 3, lastUpdateStr);
+        display.showDepartures(STOP1_TITLE, deps1, 4, STOP2_TITLE, deps2PerLine, 3, lastUpdateStr, now);
+        lastSuccessUnix = time(nullptr);
+        setError(ErrorCode::NONE);
     } else {
         setError(ErrorCode::API_FETCH_FAILED);
-        display.showMessage("Error", "No matching departures found.");
+        if (!ok1 && !ok2) {
+            display.showMessage("Error", "API request failed.", "Check stop IDs and API availability.");
+        } else {
+            display.showMessage("Info", "No matching departures found.", "Check filters or try again later.");
+        }
     }
-
-    lastSuccessUnix = time(nullptr);
-    setError(ErrorCode::NONE);
 
     unsigned long sleepSec = getSleepInterval();
     goToSleep(sleepSec);
