@@ -358,8 +358,8 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
 
     int x = MARGIN;
 
-    // Vehicle icon
-    drawVehicleIcon(x, y + (ROW_HEIGHT - ICON_SIZE) / 2, dep.mode);
+    // Vehicle icon (shifted up slightly so it looks centred with the text)
+    drawVehicleIcon(x, y + (ROW_HEIGHT - ICON_SIZE) / 2 - 4, dep.mode);
     x += ICON_SIZE + 8;
 
     // Line number
