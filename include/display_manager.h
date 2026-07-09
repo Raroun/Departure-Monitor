@@ -13,6 +13,13 @@ class DisplayManager {
     // Optionally a second detail line can be shown below the message.
     void showMessage(const char* title, const char* message, const char* detail = nullptr);
 
+    // Shows a decorative error screen with a small illustration and the time of
+    // the last attempt.
+    void showErrorScreen(const char* title, const char* message, const char* detail, time_t lastAttempt = 0);
+
+    // Shows a startup splash screen with the two status lines.
+    void showSplashScreen(const char* status1, const char* status2);
+
     // Shows a decorative night-mode screen.
     void showNightMode(const char* timeStr, const char* dateStr);
 

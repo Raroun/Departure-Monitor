@@ -86,6 +86,123 @@ void DisplayManager::showMessage(const char* title, const char* message, const c
     epd_poweroff();
 }
 
+// Draws a small offline dinosaur in the centre of the screen.
+static void drawOfflineDino(int cx, int cy) {
+    // Body
+    epd_fill_rect(cx - 60, cy - 40, 100, 70, C_BLACK, framebuffer);
+    // Head
+    epd_fill_rect(cx + 30, cy - 80, 55, 55, C_BLACK, framebuffer);
+    // Snout tip
+    epd_fill_rect(cx + 80, cy - 60, 15, 15, C_BLACK, framebuffer);
+    // Eye
+    epd_fill_rect(cx + 60, cy - 70, 8, 8, C_WHITE, framebuffer);
+    // Mouth line
+    epd_draw_line(cx + 50, cy - 45, cx + 80, cy - 45, C_WHITE, framebuffer);
+    // Neck connection (remove sharp corner)
+    epd_fill_rect(cx + 20, cy - 45, 20, 15, C_BLACK, framebuffer);
+    // Tail
+    epd_fill_triangle(cx - 60, cy - 10, cx - 100, cy - 40, cx - 60, cy + 10, C_BLACK, framebuffer);
+    // Back leg
+    epd_fill_rect(cx - 30, cy + 25, 22, 35, C_BLACK, framebuffer);
+    // Front leg
+    epd_fill_rect(cx + 10, cy + 25, 22, 35, C_BLACK, framebuffer);
+    // Arm
+    epd_fill_rect(cx + 35, cy - 5, 25, 10, C_BLACK, framebuffer);
+}
+
+void DisplayManager::showSplashScreen(const char* status1, const char* status2) {
+    size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
+    memset(framebuffer, 0xFF, fb_size);
+
+    // Title
+    const char* title = "Departure Monitor";
+    int titleW = text_width(title);
+    int titleX = (EPD_WIDTH - titleW) / 2;
+    draw_text(titleX, MARGIN + 50, title, C_BLACK, C_WHITE, true);
+
+    // Subtitle
+    const char* subtitle = "V1.0 by Raroun";
+    int subW = text_width(subtitle);
+    int subX = (EPD_WIDTH - subW) / 2;
+    draw_text(subX, MARGIN + 95, subtitle, C_DARK, C_WHITE, true);
+
+    // Decorative divider
+    int divY = MARGIN + 120;
+    epd_draw_line(EPD_WIDTH / 2 - 120, divY, EPD_WIDTH / 2 + 120, divY, C_LIGHT, framebuffer);
+
+    // Large bus icon (left of centre)
+    int busX = EPD_WIDTH / 2 - 100;
+    int busY = EPD_HEIGHT / 2 - 50;
+    epd_fill_rect(busX, busY, 80, 50, C_LIGHT, framebuffer);
+    epd_draw_rect(busX, busY, 80, 50, C_BLACK, framebuffer);
+    epd_fill_rect(busX + 8, busY + 8, 64, 16, C_WHITE, framebuffer);  // windshield
+    epd_fill_circle(busX + 18, busY + 55, 8, C_BLACK, framebuffer);     // front wheel
+    epd_fill_circle(busX + 62, busY + 55, 8, C_BLACK, framebuffer);     // rear wheel
+
+    // Large train icon (right of centre)
+    int trainX = EPD_WIDTH / 2 + 20;
+    int trainY = EPD_HEIGHT / 2 - 50;
+    epd_fill_rect(trainX, trainY, 80, 50, C_LIGHT, framebuffer);
+    epd_draw_rect(trainX, trainY, 80, 50, C_BLACK, framebuffer);
+    epd_fill_rect(trainX + 8, trainY + 8, 64, 16, C_WHITE, framebuffer);  // windshield
+    epd_draw_line(trainX - 10, trainY + 58, trainX + 90, trainY + 58, C_BLACK, framebuffer);  // rail
+    epd_draw_line(trainX - 10, trainY + 64, trainX + 90, trainY + 64, C_BLACK, framebuffer);  // rail
+
+    // Status lines at the bottom
+    int statusY = EPD_HEIGHT - MARGIN - 70;
+    if (status1 != nullptr && status1[0] != '\0') {
+        int w = text_width(status1);
+        draw_text((EPD_WIDTH - w) / 2, statusY, status1, C_DARK, C_WHITE, true);
+    }
+    if (status2 != nullptr && status2[0] != '\0') {
+        int w = text_width(status2);
+        draw_text((EPD_WIDTH - w) / 2, statusY + 36, status2, C_DARK, C_WHITE, true);
+    }
+
+    epd_poweron();
+    epd_clear();
+    epd_draw_grayscale_image(epd_full_screen(), framebuffer);
+    epd_poweroff();
+}
+
+void DisplayManager::showErrorScreen(const char* title, const char* message, const char* detail, time_t lastAttempt) {
+    size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
+    memset(framebuffer, 0xFF, fb_size);
+
+    draw_text(MARGIN, MARGIN + 40, title, C_BLACK, C_WHITE, true);
+    epd_draw_line(MARGIN, MARGIN + 55, EPD_WIDTH - MARGIN, MARGIN + 55, C_DARK, framebuffer);
+
+    // Offline dinosaur in the centre
+    drawOfflineDino(EPD_WIDTH / 2, EPD_HEIGHT / 2 - 20);
+
+    // Message below the illustration
+    int msgW = text_width(message);
+    int msgX = (EPD_WIDTH - msgW) / 2;
+    draw_text(msgX, EPD_HEIGHT / 2 + 80, message, C_BLACK, C_WHITE, true);
+
+    if (detail != nullptr && detail[0] != '\0') {
+        int detW = text_width(detail);
+        int detX = (EPD_WIDTH - detW) / 2;
+        draw_text(detX, EPD_HEIGHT / 2 + 120, detail, C_DARK, C_WHITE, true);
+    }
+
+    // Time of the last failed attempt
+    if (lastAttempt > 0) {
+        struct tm ti;
+        localtime_r(&lastAttempt, &ti);
+        char buf[64];
+        strftime(buf, sizeof(buf), "Last attempt: %H:%M", &ti);
+        int tw = text_width(buf);
+        int tx = (EPD_WIDTH - tw) / 2;
+        draw_text(tx, EPD_HEIGHT - MARGIN - 20, buf, C_LIGHT, C_WHITE, true);
+    }
+
+    epd_poweron();
+    epd_clear();
+    epd_draw_grayscale_image(epd_full_screen(), framebuffer);
+    epd_poweroff();
+}
+
 void DisplayManager::showNightMode(const char* timeStr, const char* dateStr) {
     (void)timeStr;  // Not used – screen stays static
     (void)dateStr;  // Not used – screen stays static
@@ -378,36 +495,36 @@ void DisplayManager::drawDepartureRow(int y, const Departure& dep, int index) {
     }
     draw_text(x, y + 36, direction.c_str(), C_BLACK, bg, true);
 
-    // Departure time right-aligned
+    // Departure time right-aligned in a fixed-width column so the delay badge
+    // always keeps the same horizontal position regardless of the time text.
     String timeStr = formatTime(dep.minutesUntil);
     int timeW = text_width(timeStr.c_str());
-    int timeX = EPD_WIDTH - MARGIN - timeW;
+    int timeColumnRight = EPD_WIDTH - MARGIN;
+    int timeX = timeColumnRight - timeW;
 
-    // Highlight imminent departures, but not for "Now".
-    bool imminent = (dep.minutesUntil > 0 && dep.minutesUntil <= 5);
-    if (dep.cancelled) {
-        imminent = false;
-    }
+    // Actual departure time on the right never has a black background.
+    draw_text(timeX, y + 38, timeStr.c_str(), C_BLACK, bg, true);
 
-    if (imminent) {
-        int pad = 8;
-        int boxH = ROW_HEIGHT - 8;
-        int boxY = y + 4;
-        epd_fill_rect(timeX - pad, boxY, timeW + 2 * pad, boxH, C_BLACK, framebuffer);
-        draw_text(timeX, y + 38, timeStr.c_str(), C_WHITE, C_BLACK, true);
-    } else {
-        draw_text(timeX, y + 38, timeStr.c_str(), C_BLACK, bg, true);
-    }
-
-    // Delay badge with black background, placed further left of the time.
+    // Delay badge with black background, placed left of the fixed time column.
     if (!dep.cancelled && dep.delayMinutes > 0) {
+        static int timeColumnWidth = -1;
+        if (timeColumnWidth < 0) {
+            timeColumnWidth = text_width("59 min");
+            int w = text_width("Now");
+            if (w > timeColumnWidth) timeColumnWidth = w;
+            w = text_width("99h59");
+            if (w > timeColumnWidth) timeColumnWidth = w;
+        }
+
         String delayStr = "+" + String(dep.delayMinutes);
         int delayW = text_width(delayStr.c_str());
-        int delayX = timeX - delayW - 20;
-        int delayY = y + 8;
-        int badgeH = 44;
+        const int BADGE_TIME_GAP = 12;
+        int badgeColumnRight = timeColumnRight - timeColumnWidth - BADGE_TIME_GAP;
+        int delayX = badgeColumnRight - delayW;  // right-aligned so +1/+10/+120 share the same right edge
+        int delayY = y + 7;
+        int badgeH = 33;
         epd_fill_rect(delayX - 5, delayY, delayW + 10, badgeH, C_BLACK, framebuffer);
-        draw_text(delayX, delayY + 30, delayStr.c_str(), C_WHITE, C_BLACK, true);
+        draw_text(delayX, delayY + 31, delayStr.c_str(), C_WHITE, C_BLACK, true);
     }
 
     // Cancelled indicator

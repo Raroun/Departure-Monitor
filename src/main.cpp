@@ -271,7 +271,7 @@ void setup() {
     }
 
     if (coldBoot) {
-        display.showMessage("Departure Monitor V1.0 by Raroun", "Connecting to WiFi...");
+        display.showSplashScreen("Connecting to WiFi...", "Loading departures...");
     }
 
     if (!wifi.connect()) {
@@ -290,10 +290,6 @@ void setup() {
     localtime_r(&now, &timeinfo);
     if (isNightHour(timeinfo.tm_hour)) {
         enterNightMode(timeinfo);
-    }
-
-    if (coldBoot) {
-        display.showMessage("Departure Monitor V1.0 by Raroun", "Loading departures...");
     }
 
     std::vector<Departure> deps1, deps2;
@@ -344,10 +340,11 @@ void setup() {
         setError(ErrorCode::NONE);
     } else {
         setError(ErrorCode::API_FETCH_FAILED);
+        time_t now = time(nullptr);
         if (!ok1 && !ok2) {
-            display.showMessage("Error", "API request failed.", "Check stop IDs and API availability.");
+            display.showErrorScreen("Offline", "API request failed.", "Check stop IDs and API availability.", now);
         } else {
-            display.showMessage("Info", "No matching departures found.", "Check filters or try again later.");
+            display.showErrorScreen("Offline", "No matching departures found.", "Check filters or try again later.", now);
         }
     }
 

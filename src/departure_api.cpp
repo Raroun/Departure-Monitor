@@ -185,6 +185,7 @@ bool DepartureApi::fetch(std::vector<Departure>& out) {
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     http.setConnectTimeout(10000);  // TLS handshake can be slow
     http.setTimeout(8000);          // Must stay below the task watchdog timeout
+    http.setUserAgent("Mozilla/5.0");  // openservice-test.vrr.de rejects the default agent
     http.begin(url);
 
     esp_task_wdt_reset();
