@@ -58,6 +58,7 @@ bool DisplayManager::begin() {
     epd_poweron();
     epd_clear();
     epd_poweroff();
+    fullRefreshNext_ = false;
 
     size_t fb_size = EPD_WIDTH / 2 * EPD_HEIGHT;
     framebuffer = (uint8_t*)heap_caps_malloc(fb_size, MALLOC_CAP_SPIRAM);
@@ -81,7 +82,10 @@ void DisplayManager::showMessage(const char* title, const char* message, const c
     }
 
     epd_poweron();
-    epd_clear();
+    if (fullRefreshNext_) {
+        epd_clear();
+        fullRefreshNext_ = false;
+    }
     epd_draw_grayscale_image(epd_full_screen(), framebuffer);
     epd_poweroff();
 }
@@ -160,7 +164,10 @@ void DisplayManager::showSplashScreen(const char* status1, const char* status2) 
     }
 
     epd_poweron();
-    epd_clear();
+    if (fullRefreshNext_) {
+        epd_clear();
+        fullRefreshNext_ = false;
+    }
     epd_draw_grayscale_image(epd_full_screen(), framebuffer);
     epd_poweroff();
 }
@@ -198,7 +205,10 @@ void DisplayManager::showErrorScreen(const char* title, const char* message, con
     }
 
     epd_poweron();
-    epd_clear();
+    if (fullRefreshNext_) {
+        epd_clear();
+        fullRefreshNext_ = false;
+    }
     epd_draw_grayscale_image(epd_full_screen(), framebuffer);
     epd_poweroff();
 }
@@ -266,7 +276,10 @@ void DisplayManager::showNightMode(const char* timeStr, const char* dateStr) {
     draw_text(infoX, offY + 60, info, C_LIGHT, C_BLACK, true);
 
     epd_poweron();
-    epd_clear();
+    if (fullRefreshNext_) {
+        epd_clear();
+        fullRefreshNext_ = false;
+    }
     epd_draw_grayscale_image(epd_full_screen(), framebuffer);
     epd_poweroff();
 }
@@ -329,7 +342,10 @@ void DisplayManager::showDepartures(const char* title1, const std::vector<Depart
     }
 
     epd_poweron();
-    epd_clear();
+    if (fullRefreshNext_) {
+        epd_clear();
+        fullRefreshNext_ = false;
+    }
     epd_draw_grayscale_image(epd_full_screen(), framebuffer);
     epd_poweroff();
 }
@@ -551,10 +567,19 @@ String DisplayManager::formatTime(long minutesUntil) {
     return s;
 }
 
+void DisplayManager::requestFullRefresh() {
+    fullRefreshNext_ = true;
+}
+
+void DisplayManager::cancelFullRefresh() {
+    fullRefreshNext_ = false;
+}
+
 void DisplayManager::fullRefresh() {
     epd_poweron();
     epd_clear();
     epd_poweroff();
+    fullRefreshNext_ = false;
 }
 
 void DisplayManager::sleep() {

@@ -15,7 +15,11 @@ static const char* TAG = "Main";
 // Diagnostic data in RTC memory: survives deep sleep, lost on power loss.
 RTC_NOINIT_ATTR static uint32_t bootCount = 0;
 RTC_NOINIT_ATTR static time_t lastSuccessUnix = 0;
+RTC_NOINIT_ATTR static time_t lastFullRefreshUnix = 0;
 RTC_NOINIT_ATTR static uint32_t lastErrorCode = 0;
+
+// Full refresh interval: clears ghosting by running an extra clear cycle.
+static const time_t FULL_REFRESH_INTERVAL_SEC = 3600;  // once per hour
 
 enum class ErrorCode : uint32_t {
     NONE = 0,
@@ -326,11 +330,19 @@ void setup() {
     }
 
     if (!deps1.empty() || !deps2PerLine.empty()) {
+        // Request a full refresh (with clear cycle) once per hour to prevent
+        // ghosting from accumulating across partial updates.
+        now = time(nullptr);
+        if (now - lastFullRefreshUnix >= FULL_REFRESH_INTERVAL_SEC) {
+            display.requestFullRefresh();
+            lastFullRefreshUnix = now;
+        }
+
         if (coldBoot) {
             display.fullRefresh();
         }
+
         // Format current time as last update time
-        now = time(nullptr);
         applyGermanyTimezone();
         localtime_r(&now, &timeinfo);
         char lastUpdateStr[16];

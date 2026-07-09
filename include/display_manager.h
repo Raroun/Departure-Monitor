@@ -45,6 +45,12 @@ class DisplayManager {
     // One-time full display refresh (removes ghosting).
     void fullRefresh();
 
+    // Requests a full refresh (with clear cycle) on the next draw call.
+    void requestFullRefresh();
+
+    // Cancels a pending full refresh request.
+    void cancelFullRefresh();
+
     // Deep-sleep mode for the display (power saving).
     void sleep();
 
@@ -60,4 +66,5 @@ class DisplayManager {
     int batteryPercent_ = -1;
     bool batteryLow_ = false;
     const char* errorText_ = nullptr;
+    bool fullRefreshNext_ = true;
 };
